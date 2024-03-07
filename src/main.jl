@@ -34,7 +34,7 @@ function eval_expr(expr::Symbol, env::Env)
     if val === nothing 
         getfield(Base, expr)  # Fetches the primitive function from the Base module
     else
-        val 
+        expr  # NOTE(diogo): This is an error case
     end
 end
 
@@ -51,16 +51,38 @@ function eval_expr(expr::String, env::Env)
 end
 
 function eval_expr(expr::Expr, env::Env)
-    if expr.head === :call
+    if expr.head === :call  # TODO: revisit annonimous functions
         handle_call(expr, env)
     elseif expr.head === :if
         # TODO: Implement if-else
+        # 1. eval condition
+        # 2. if true, eval first branch
+        # 3. if false, eval second branch
     elseif expr.head === :let
         # TODO: Implement let
+        # 1. Evaluate all the declared variables <- careful with function declaration
+        # 2. Put in the environment
+        # 3. Evaluate the body
+    elseif expr.head === :(=)
+        # TODO: Implement assignment
+        # 1. Evaluate the right-hand side
+        # 2. Assign to the left-hand side by putting in the environment
+    elseif expr.head === :function
+        # TODO: Implement function declaration
+        # 1. Create a closure with the current environment
+        # 2. Put in the environment
+    elseif expr.head === :begin  # TODO: Check if this is relevant
+        # TODO: Implement begin
+        # 1. Evaluate all the expressions in order
+        # 2. Return the last one
+    elseif expr.head === :global
+        # TODO: Implement global
+        # 1. Evaluate the expression
+        # 2. Put in the global environment
     else
         # All other expressions should be collections of sub-expressions in an environment
         # and so, we do a broadcast to apply the function element-wise over the collection of expressions.
-        eval_expr.(expr.args, Ref(env))  
+        eval_expr.(expr.args, Ref(env))  # TODO: Check if this is the correct way to pass the environment (LineNumberNode)
     end
 end
 
