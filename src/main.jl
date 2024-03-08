@@ -118,16 +118,19 @@ function eval_expr(expr::Expr, env::Env)
         # TODO: Implement function declaration
         # 1. Create a closure with the current environment
         # 2. Put in the environment
-    elseif expr.head === :begin  # TODO: Check if this is relevant
+    elseif expr.head === :begin  # TODO: Check if this is relevant 
         # TODO: Implement begin
         # 1. Evaluate all the expressions in order
         # 2. Return the last one
+
+        # Probably we can use the block handler for this
+        # and not sure if there exists a begin head
+
     elseif expr.head === :global
         # TODO: Implement global
         # 1. Evaluate the expression
         # 2. Put in the global environment
     elseif expr.head === :block
-        # TODO: Implement block
         handle_block(expr, env)
     else
         # All other expressions should be collections of sub-expressions in an environment
