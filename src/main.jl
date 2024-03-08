@@ -76,11 +76,6 @@ function handle_or(expr::Expr, env::Env)
     return false
 end
 
-
-
-
-
-
 function handle_block(expr::Expr, env::Env)
     vals = [eval_expr(arg, env) for arg in expr.args]
     return vals[end]
@@ -157,9 +152,9 @@ function eval_expr(expr::Expr, env::Env)
         # 2. Put in the global environment
     elseif expr.head === :block
         handle_block(expr, env)
-    elseif expr.head === :(&&)
+    elseif expr.head === :&&
         handle_and(expr, env)
-    elseif expr.head === :(||)
+    elseif expr.head === :||
         handle_or(expr, env)
     else
         # All other expressions should be collections of sub-expressions in an environment
