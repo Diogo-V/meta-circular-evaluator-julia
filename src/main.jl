@@ -87,12 +87,23 @@ function eval_expr(expr::Expr, env::Env)
 end
 
 # REPL
+function read_from_stdin()
+    lines = []
+    while true  # Julia does not have do-while, so we use this trick
+        line = readline()
+        push!(lines, line)
+        line != "" || break
+    end
+    single_line = join(lines, "\n")
+    return single_line
+end
+
 function metajulia_repl()
     env = global_env
     while true
         print(">> ")
-        line = readline()
-        expr = Meta.parse(line)
+        program = read_from_stdin() 
+        expr = Meta.parse(program)
         val = eval_expr(expr, env)
         println(val)
     end
