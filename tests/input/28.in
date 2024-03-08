@@ -1,6 +1,2 @@
-sum(f, a, b) = 
-    a > b ?
-    0
-    :
-    f(a) + sum(f, a + 1, b)
+sum(f, a, b) = a > b ? 0 : f(a) + sum(f, a + 1, b) ;
 sum(triple, 1, 10)

@@ -1,2 +1,2 @@
-triple(a) = a + a + a
-triple(x+3)
+triple(a) = a + a + a ;
+triple(x + 3)

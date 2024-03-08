@@ -1,2 +1,4 @@
-baz = 3
-let ; baz = 6 end + baz
+begin
+    baz = 3
+    let ; baz = 6 end + baz
+end
