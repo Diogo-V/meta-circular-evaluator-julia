@@ -8,6 +8,8 @@ end
 global_env = Env(Dict{Symbol,Any}(), nothing)
 
 
+
+
 function get_value(env::Env, sym::Symbol)
     haskey(env.vars, sym) && return env.vars[sym]
     env.parent === nothing && return nothing
@@ -37,16 +39,25 @@ end
 function handle_if(expr::Expr, env::Env)
     condition = eval_expr(expr.args[1], env) # Evaluate the condition
 
+    println("Arg1: ", expr.args[1])
+    println("Arg2: ", expr.args[2])
+    println("Arg3: ", expr.args[3])
+
+
     if condition
-        eval_expr(expr.args[2], env) # If the condition is true, evaluate the first branch
+        c2 = eval_expr(expr.args[2], env) # If the condition is true, evaluate the first branch
+        return c2
     else
-        eval_expr(expr.args[3], env) # Else, evaluate the second branch
+        
+        c3 = eval_expr(expr.args[3], env) # If the condition is false, evaluate the second branch
+        return c3
     end
 end
 
 # Evaluation functions
 function eval_expr(expr::Symbol, env::Env)
     val = get_value(env, expr)  # Tries to fetch the value of the symbol from the environment
+
     if val === nothing 
         getfield(Base, expr)  # Fetches the primitive function from the Base module
     else
@@ -67,6 +78,16 @@ end
 
 function eval_expr(expr::String, env::Env)
     expr
+end
+
+# Print empty line to not crash the REPL
+function eval_expr(expr::Nothing, env::Env)
+    ""
+end
+
+# LineNumberNode to skip
+function eval_expr(expr::LineNumberNode, env::Env)
+    nothing
 end
 
 
@@ -107,6 +128,7 @@ end
 
 function main(text::String, env::Env)
     expr = Meta.parse(text)
+    # println(expr) # <- Debugging
     eval_expr(expr, env)
 end
 
