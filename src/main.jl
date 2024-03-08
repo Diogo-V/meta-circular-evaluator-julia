@@ -128,9 +128,8 @@ end
 # For tests
 function run_test()
     env = global_env
-    lines = readlines()
-    single_line = join(lines, "\n")
-    val = main(single_line, env)
+    program = read_from_stdin()
+    val = main(program, env)
     println(val)
 end
 
