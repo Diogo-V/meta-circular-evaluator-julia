@@ -1,0 +1,9 @@
+begin
+  incr =
+      let priv_counter = 0
+        () -> priv_counter = priv_counter + 1
+      end
+  incr()
+  incr()
+  incr()
+end
