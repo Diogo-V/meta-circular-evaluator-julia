@@ -1,0 +1,4 @@
+begin
+    let secret = 1234; global show_secret() = secret end
+    show_secret()
+end
