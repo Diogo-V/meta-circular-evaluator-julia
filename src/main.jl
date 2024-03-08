@@ -4,7 +4,9 @@ struct Env
     parent::Union{Nothing,Env}
 end
 
+
 global_env = Env(Dict{Symbol,Any}(), nothing)
+
 
 function get_value(env::Env, sym::Symbol)
     haskey(env.vars, sym) && return env.vars[sym]
@@ -12,14 +14,17 @@ function get_value(env::Env, sym::Symbol)
     get_value(env.parent, sym)
 end
 
+
 function set_value!(env::Env, sym::Symbol, val)
     env.vars[sym] = val
 end
+
 
 function extend_env(env::Env, vars::Dict{Symbol,Any})
     new_env = Env(vars, env)
     return new_env
 end
+
 
 # Handle different expression
 function handle_call(expr::Expr, env::Env)
@@ -27,6 +32,7 @@ function handle_call(expr::Expr, env::Env)
     args = [eval_expr(arg, env) for arg in expr.args[2:end]]
     f(args...)
 end
+
 
 # Evaluation functions
 function eval_expr(expr::Symbol, env::Env)
@@ -38,17 +44,21 @@ function eval_expr(expr::Symbol, env::Env)
     end
 end
 
+
 function eval_expr(expr::QuoteNode, env::Env)
     expr.value
 end
+
 
 function eval_expr(expr::Number, env::Env)
     expr
 end
 
+
 function eval_expr(expr::String, env::Env)
     expr
 end
+
 
 function eval_expr(expr::Expr, env::Env)
     if expr.head === :call  # TODO: revisit annonimous functions
@@ -86,6 +96,13 @@ function eval_expr(expr::Expr, env::Env)
     end
 end
 
+
+function main(text::String, env::Env)
+    expr = Meta.parse(text)
+    eval_expr(expr, env)
+end
+
+
 # REPL
 function read_from_stdin()
     lines = []
@@ -103,8 +120,20 @@ function metajulia_repl()
     while true
         print(">> ")
         program = read_from_stdin() 
-        expr = Meta.parse(program)
-        val = eval_expr(expr, env)
+        val = main(program, env)
         println(val)
     end
+end
+
+# For tests
+function run_test()
+    env = global_env
+    program = read_from_stdin()
+    val = main(program, env)
+    println(val)
+end
+
+
+if abspath(PROGRAM_FILE) == @__FILE__
+    run_test()
 end

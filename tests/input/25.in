@@ -1,0 +1,6 @@
+begin
+    baz = 3
+    let x = 0
+        baz = 5
+    end + baz
+end
