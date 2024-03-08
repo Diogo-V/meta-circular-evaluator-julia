@@ -7,6 +7,16 @@ end
 
 global_env = Env(Dict{Symbol,Any}(), nothing)
 
+# This is a debugging function to print the arguments of a function
+function print_args(args)
+    count = 1
+    for arg in args
+        println("Argument $count head: $(arg.head)")
+        println("Argument $count args: $(arg)")
+        count += 1
+    end
+end
+
 
 function get_value(env::Env, sym::Symbol)
     haskey(env.vars, sym) && return env.vars[sym]
@@ -34,10 +44,29 @@ function handle_call(expr::Expr, env::Env)
 end
 
 
+function handle_if(expr::Expr, env::Env)
+    cond = eval_expr(expr.args[1], env)  
+    # print_args(expr.args) # <- Debugging
+    if cond
+        return eval_expr(expr.args[2], env)  # True branch
+    elseif length(expr.args) > 2 # If there is an else branch
+        return eval_expr(expr.args[3], env)  # False branch
+    end
+    return false
+
+end
+
+function handle_block(expr::Expr, env::Env)
+    vals = [eval_expr(arg, env) for arg in expr.args]
+    return vals[end]
+end
+
+
 # Evaluation functions
 function eval_expr(expr::Symbol, env::Env)
     val = get_value(env, expr)  # Tries to fetch the value of the symbol from the environment
-    if val === nothing 
+
+    if val === nothing
         getfield(Base, expr)  # Fetches the primitive function from the Base module
     else
         expr  # NOTE(diogo): This is an error case
@@ -59,15 +88,23 @@ function eval_expr(expr::String, env::Env)
     expr
 end
 
+# Print empty line to not crash the REPL
+function eval_expr(expr::Nothing, env::Env)
+    ""
+end
+
+# LineNumberNode to skip
+function eval_expr(expr::LineNumberNode, env::Env)
+    nothing
+end
+
 
 function eval_expr(expr::Expr, env::Env)
     if expr.head === :call  # TODO: revisit annonimous functions
         handle_call(expr, env)
-    elseif expr.head === :if
-        # TODO: Implement if-else
-        # 1. eval condition
-        # 2. if true, eval first branch
-        # 3. if false, eval second branch
+    elseif expr.head === :if || expr.head === :elseif
+        # Probably this should handle elseif as well
+        handle_if(expr, env)
     elseif expr.head === :let
         # TODO: Implement let
         # 1. Evaluate all the declared variables <- careful with function declaration
@@ -81,14 +118,20 @@ function eval_expr(expr::Expr, env::Env)
         # TODO: Implement function declaration
         # 1. Create a closure with the current environment
         # 2. Put in the environment
-    elseif expr.head === :begin  # TODO: Check if this is relevant
+    elseif expr.head === :begin  # TODO: Check if this is relevant 
         # TODO: Implement begin
         # 1. Evaluate all the expressions in order
         # 2. Return the last one
+
+        # Probably we can use the block handler for this
+        # and not sure if there exists a begin head
+
     elseif expr.head === :global
         # TODO: Implement global
         # 1. Evaluate the expression
         # 2. Put in the global environment
+    elseif expr.head === :block
+        handle_block(expr, env)
     else
         # All other expressions should be collections of sub-expressions in an environment
         # and so, we do a broadcast to apply the function element-wise over the collection of expressions.
@@ -99,6 +142,7 @@ end
 
 function main(text::String, env::Env)
     expr = Meta.parse(text)
+    # println(expr) # <- Debugging
     eval_expr(expr, env)
 end
 
@@ -119,7 +163,7 @@ function metajulia_repl()
     env = global_env
     while true
         print(">> ")
-        program = read_from_stdin() 
+        program = read_from_stdin()
         val = main(program, env)
         println(val)
     end
