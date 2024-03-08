@@ -143,7 +143,6 @@ function eval_expr(expr::Expr, env::Env)
         # 1. Evaluate the expression
         # 2. Put in the global environment
     elseif expr.head === :block
-        println("Block")
         handle_block(expr, env)
     elseif expr.head === :&&
         handle_and(expr, env)
@@ -159,7 +158,7 @@ end
 
 function main(text::String, env::Env)
     expr = Meta.parse(text)
-    println(expr) # <- Debugging
+    # println(expr) # <- Debugging
     eval_expr(expr, env)
 end
 
