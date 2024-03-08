@@ -53,8 +53,33 @@ function handle_if(expr::Expr, env::Env)
         return eval_expr(expr.args[3], env)  # False branch
     end
     return false
-
 end
+
+
+function handle_and(expr::Expr, env::Env)
+    for arg in expr.args
+        val = eval_expr(arg, env)
+        if !val
+            return false
+        end
+    end
+    return true
+end
+
+function handle_or(expr::Expr, env::Env)
+    for arg in expr.args
+        val = eval_expr(arg, env)
+        if val
+            return true
+        end
+    end
+    return false
+end
+
+
+
+
+
 
 function handle_block(expr::Expr, env::Env)
     vals = [eval_expr(arg, env) for arg in expr.args]
@@ -132,6 +157,10 @@ function eval_expr(expr::Expr, env::Env)
         # 2. Put in the global environment
     elseif expr.head === :block
         handle_block(expr, env)
+    elseif expr.head === :(&&)
+        handle_and(expr, env)
+    elseif expr.head === :(||)
+        handle_or(expr, env)
     else
         # All other expressions should be collections of sub-expressions in an environment
         # and so, we do a broadcast to apply the function element-wise over the collection of expressions.
