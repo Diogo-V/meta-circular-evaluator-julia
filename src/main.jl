@@ -34,6 +34,16 @@ function handle_call(expr::Expr, env::Env)
 end
 
 
+function handle_if(expr::Expr, env::Env)
+    condition = eval_expr(expr.args[1], env) # Evaluate the condition
+
+    if condition
+        eval_expr(expr.args[2], env) # If the condition is true, evaluate the first branch
+    else
+        eval_expr(expr.args[3], env) # Else, evaluate the second branch
+    end
+end
+
 # Evaluation functions
 function eval_expr(expr::Symbol, env::Env)
     val = get_value(env, expr)  # Tries to fetch the value of the symbol from the environment
@@ -64,10 +74,8 @@ function eval_expr(expr::Expr, env::Env)
     if expr.head === :call  # TODO: revisit annonimous functions
         handle_call(expr, env)
     elseif expr.head === :if
-        # TODO: Implement if-else
-        # 1. eval condition
-        # 2. if true, eval first branch
-        # 3. if false, eval second branch
+        # TODO: Implement if
+        handle_if(expr, env)
     elseif expr.head === :let
         # TODO: Implement let
         # 1. Evaluate all the declared variables <- careful with function declaration
