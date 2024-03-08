@@ -45,12 +45,12 @@ end
 
 
 function handle_if(expr::Expr, env::Env)
-    cond = eval_expr(expr.args[1], env)  # Evaluate the condition
+    cond = eval_expr(expr.args[1], env)  
     # print_args(expr.args) # <- Debugging
     if cond
-        return eval_expr(expr.args[2], env)  # Evaluate the true branch
-    elseif length(expr.args) > 2
-        return eval_expr(expr.args[3], env)  # Evaluate the false branch
+        return eval_expr(expr.args[2], env)  # True branch
+    elseif length(expr.args) > 2 # If there is an else branch
+        return eval_expr(expr.args[3], env)  # False branch
     end
     return false
 
