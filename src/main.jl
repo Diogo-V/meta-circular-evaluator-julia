@@ -7,6 +7,7 @@ end
 
 global_env = Env(Dict{Symbol,Any}(), nothing)
 
+
 # This is a debugging function to print the arguments of a function
 function print_args(args)
     count = 1
@@ -39,7 +40,7 @@ end
 # Handle different expression
 function handle_call(expr::Expr, env::Env)
     f = eval_expr(expr.args[1], env)
-    args = [isa(arg, Symbol) ? get_value(env, arg) : eval_expr(arg, env) for arg in expr.args[2:end]]
+    args = [eval_expr(arg, env) for arg in expr.args[2:end]]
     f(args...)
 end
 
@@ -66,6 +67,7 @@ function handle_and(expr::Expr, env::Env)
     return true
 end
 
+
 function handle_or(expr::Expr, env::Env)
     for arg in expr.args
         val = eval_expr(arg, env)
@@ -76,16 +78,19 @@ function handle_or(expr::Expr, env::Env)
     return false
 end
 
+
 function handle_block(expr::Expr, env::Env)
     vals = [eval_expr(arg, env) for arg in expr.args]
     return vals[end]
 end
+
 
 function handle_assignment(expr::Expr, env::Env)
     symbol = expr.args[1]
     value = eval_expr(expr.args[2], env)
     set_value!(env, symbol, value)
 end
+
 
 function handle_let(expr::Expr, env::Env)
     vals = [eval_expr(arg, env) for arg in expr.args]
@@ -96,16 +101,18 @@ function handle_let(expr::Expr, env::Env)
     end
 end
 
+
 # Evaluation functions
 function eval_expr(expr::Symbol, env::Env)
     val = get_value(env, expr)  # Tries to fetch the value of the symbol from the environment
     if val === nothing
         getfield(Base, expr)  # Fetches the primitive function from the Base module
     else
-        expr  # NOTE(diogo): This is an error case
+        val  # Returns the value from the environment
     end
-    
 end
+
+
 function eval_expr(expr::QuoteNode, env::Env)
     expr.value
 end
@@ -120,10 +127,12 @@ function eval_expr(expr::String, env::Env)
     expr
 end
 
+
 # Print empty line to not crash the REPL
 function eval_expr(expr::Nothing, env::Env)
     ""
 end
+
 
 # LineNumberNode to skip
 function eval_expr(expr::LineNumberNode, env::Env)
