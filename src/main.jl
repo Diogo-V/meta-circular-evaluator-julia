@@ -7,6 +7,7 @@ end
 
 global_env = Env(Dict{Symbol,Any}(), nothing)
 
+
 # This is a debugging function to print the arguments of a function
 function print_args(args)
     count = 1
@@ -66,6 +67,7 @@ function handle_and(expr::Expr, env::Env)
     return true
 end
 
+
 function handle_or(expr::Expr, env::Env)
     for arg in expr.args
         val = eval_expr(arg, env)
@@ -76,20 +78,37 @@ function handle_or(expr::Expr, env::Env)
     return false
 end
 
+
 function handle_block(expr::Expr, env::Env)
     vals = [eval_expr(arg, env) for arg in expr.args]
     return vals[end]
 end
 
 
+function handle_assignment(expr::Expr, env::Env)
+    symbol = expr.args[1]
+    value = eval_expr(expr.args[2], env)
+    set_value!(env, symbol, value)
+end
+
+
+function handle_let(expr::Expr, env::Env)
+    vals = [eval_expr(arg, env) for arg in expr.args]
+    if isa(vals[end], Symbol)
+        return get_value(env, vals[end])
+    else    
+        return vals[end]
+    end
+end
+
+
 # Evaluation functions
 function eval_expr(expr::Symbol, env::Env)
     val = get_value(env, expr)  # Tries to fetch the value of the symbol from the environment
-
     if val === nothing
         getfield(Base, expr)  # Fetches the primitive function from the Base module
     else
-        expr  # NOTE(diogo): This is an error case
+        val  # Returns the value from the environment
     end
 end
 
@@ -108,10 +127,12 @@ function eval_expr(expr::String, env::Env)
     expr
 end
 
+
 # Print empty line to not crash the REPL
 function eval_expr(expr::Nothing, env::Env)
     ""
 end
+
 
 # LineNumberNode to skip
 function eval_expr(expr::LineNumberNode, env::Env)
@@ -126,14 +147,14 @@ function eval_expr(expr::Expr, env::Env)
         # Probably this should handle elseif as well
         handle_if(expr, env)
     elseif expr.head === :let
+        handle_let(expr, env)
+
         # TODO: Implement let
         # 1. Evaluate all the declared variables <- careful with function declaration
         # 2. Put in the environment
         # 3. Evaluate the body
     elseif expr.head === :(=)
-        # TODO: Implement assignment
-        # 1. Evaluate the right-hand side
-        # 2. Assign to the left-hand side by putting in the environment
+        handle_assignment(expr, env)       
     elseif expr.head === :function
         # TODO: Implement function declaration
         # 1. Create a closure with the current environment
