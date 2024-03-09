@@ -8,6 +8,12 @@ end
 global_env = Env(Dict{Symbol,Any}(), nothing)
 
 
+# Function to extend an environment by creating a new sub-environment
+function extend_env(parent_env::Env)
+    return Env(Dict{Symbol,Any}(), parent_env)
+end
+
+
 # This is a debugging function to print the arguments of a function
 function print_args(args)
     count = 1
@@ -89,6 +95,7 @@ function handle_assignment(expr::Expr, env::Env)
     symbol = expr.args[1]
     value = eval_expr(expr.args[2], env)
     set_value!(env, symbol, value)
+    println(env)
 end
 
 
@@ -147,12 +154,8 @@ function eval_expr(expr::Expr, env::Env)
         # Probably this should handle elseif as well
         handle_if(expr, env)
     elseif expr.head === :let
-        handle_let(expr, env)
-
-        # TODO: Implement let
-        # 1. Evaluate all the declared variables <- careful with function declaration
-        # 2. Put in the environment
-        # 3. Evaluate the body
+        new_env = extend_env(env)
+        handle_let(expr, new_env)
     elseif expr.head === :(=)
         handle_assignment(expr, env)       
     elseif expr.head === :function
@@ -163,6 +166,7 @@ function eval_expr(expr::Expr, env::Env)
         # TODO: Implement global
         # 1. Evaluate the expression
         # 2. Put in the global environment
+        #handle_global(expr, global_env)
     elseif expr.head === :block
         handle_block(expr, env)
     elseif expr.head === :&&
