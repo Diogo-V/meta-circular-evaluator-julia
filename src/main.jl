@@ -105,7 +105,7 @@ function handle_assignment(expr::Expr, env::Env)
     if isa(symbol, Symbol)
         value = eval_expr(expr.args[2], env)
         set_value!(env, symbol, value)
-        # If we are handling a function declaration
+
     elseif isa(symbol, Expr) && symbol.head === :call
         name = symbol.args[1]
         args = symbol.args[2:end]
@@ -117,6 +117,8 @@ function handle_assignment(expr::Expr, env::Env)
             eval_expr(body, new_env)
         end
         set_value!(env, name, func)
+        # return the string <function>
+        return "<function>"
     end
 end
 
@@ -138,6 +140,7 @@ end
 # Evaluation functions
 function eval_expr(expr::Symbol, env::Env)
     val = get_value(env, expr)  # Tries to fetch the value of the symbol from the environment
+
     if val === nothing
         getfield(Base, expr)  # Fetches the primitive function from the Base module
     else
