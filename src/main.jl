@@ -92,6 +92,11 @@ end
 
 
 function handle_block(expr::Expr, env::Env)
+
+    if (length(expr.args) == 0)
+        return nothing
+    end
+
     vals = [eval_expr(arg, env) for arg in expr.args]
     return vals[end]
 end
