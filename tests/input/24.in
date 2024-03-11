@@ -1,1 +1,4 @@
-triple(a) = a + a + a ; triple(x + 3)
+begin
+    x = 1+2
+    triple(a) = a + a + a ; triple(x + 3)
+end

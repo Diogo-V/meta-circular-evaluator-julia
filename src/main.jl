@@ -195,7 +195,7 @@ function eval_expr(expr::Expr, env::Env)
         # 1. Evaluate the expression
         # 2. Put in the global environment
         #handle_global(expr, global_env)
-    elseif expr.head === :block
+    elseif expr.head === :block || expr.head === :toplevel
         handle_block(expr, env)
     elseif expr.head === :&&
         handle_and(expr, env)
