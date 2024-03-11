@@ -1,1 +1,4 @@
-sum(x -> x*x, 1, 10)
+begin 
+ sum(f, a, b) = a > b ? 0 : f(a) + sum(f, a + 1, b); 
+ sum(x -> x*x, 1, 10)
+end

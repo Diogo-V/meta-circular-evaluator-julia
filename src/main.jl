@@ -142,6 +142,29 @@ function handle_let(expr::Expr, old_env::Env)
 end
 
 
+function handle_anonymous_function(expr::Expr, env::Env)
+    args_expr = expr.args[1]
+    body_expr = expr.args[2]
+
+    # Make sure args_expr is a collection
+    args_expr = isa(args_expr, Symbol) ? [args_expr] : args_expr.args
+
+    anon_func = (args_vals...) -> begin
+        # Zip together argument names with values and create a dictionary
+        args_dict = Dict{Symbol, Any}()
+        for (arg_name, arg_val) in zip(args_expr, args_vals)
+            args_dict[arg_name] = arg_val
+        end
+
+        # Create a new environment for the anonymous function
+        anon_env = extend_env(env, args_dict)
+        # Evaluate the body of the anonymous function in the new environment
+        eval_expr(body_expr, anon_env)
+    end
+    return anon_func
+end
+
+
 # Evaluation functions
 function eval_expr(expr::Symbol, env::Env)
     val = get_value(env, expr)  # Tries to fetch the value of the symbol from the environment
@@ -206,6 +229,8 @@ function eval_expr(expr::Expr, env::Env)
         handle_and(expr, env)
     elseif expr.head === :||
         handle_or(expr, env)
+    elseif expr.head === :->
+        handle_anonymous_function(expr, env)
     else
         # All other expressions should be collections of sub-expressions in an environment
         # and so, we do a broadcast to apply the function element-wise over the collection of expressions.
