@@ -13,6 +13,15 @@ function extend_env(parent_env::Env)
     return Env(Dict{Symbol,Any}(), parent_env)
 end
 
+function extend_env(parent_env::Env, vars::AbstractDict{Symbol,Any})
+    new_vars = Dict{Symbol,Any}(vars)
+    return Env(new_vars, parent_env)
+end
+
+function extend_env(env::Env, vars::Dict{Symbol,Any})
+    new_env = Env(vars, env)
+    return new_env
+end
 
 # This is a debugging function to print the arguments of a function
 function print_args(args)
@@ -37,10 +46,7 @@ function set_value!(env::Env, sym::Symbol, val)
 end
 
 
-function extend_env(env::Env, vars::Dict{Symbol,Any})
-    new_env = Env(vars, env)
-    return new_env
-end
+
 
 
 # Handle different expression
@@ -52,7 +58,7 @@ end
 
 
 function handle_if(expr::Expr, env::Env)
-    cond = eval_expr(expr.args[1], env)  
+    cond = eval_expr(expr.args[1], env)
     # print_args(expr.args) # <- Debugging
     if cond
         return eval_expr(expr.args[2], env)  # True branch
@@ -91,19 +97,41 @@ function handle_block(expr::Expr, env::Env)
 end
 
 
+# Handle assignment expressions
 function handle_assignment(expr::Expr, env::Env)
     symbol = expr.args[1]
-    value = eval_expr(expr.args[2], env)
-    set_value!(env, symbol, value)
-    println(env)
+
+    # If the symbol is a variable
+    if isa(symbol, Symbol)
+        value = eval_expr(expr.args[2], env)
+        set_value!(env, symbol, value)
+
+    elseif isa(symbol, Expr) && symbol.head === :call
+        name = symbol.args[1]
+        args = symbol.args[2:end]
+        body = expr.args[2]
+
+        # Create a new function with the given arguments and body
+        func = (args_vals...) -> begin
+            new_env = extend_env(env, Dict{Symbol,Any}(zip(args, args_vals)))
+            eval_expr(body, new_env)
+        end
+        set_value!(env, name, func)
+        # return the string <function>
+        return "<function>"
+    end
 end
 
 
-function handle_let(expr::Expr, env::Env)
+
+function handle_let(expr::Expr, old_env::Env)
+    env = extend_env(old_env)
+
     vals = [eval_expr(arg, env) for arg in expr.args]
+
     if isa(vals[end], Symbol)
         return get_value(env, vals[end])
-    else    
+    else
         return vals[end]
     end
 end
@@ -112,6 +140,7 @@ end
 # Evaluation functions
 function eval_expr(expr::Symbol, env::Env)
     val = get_value(env, expr)  # Tries to fetch the value of the symbol from the environment
+
     if val === nothing
         getfield(Base, expr)  # Fetches the primitive function from the Base module
     else
@@ -154,10 +183,9 @@ function eval_expr(expr::Expr, env::Env)
         # Probably this should handle elseif as well
         handle_if(expr, env)
     elseif expr.head === :let
-        new_env = extend_env(env)
-        handle_let(expr, new_env)
+        handle_let(expr, env)
     elseif expr.head === :(=)
-        handle_assignment(expr, env)       
+        handle_assignment(expr, env)
     elseif expr.head === :function
         # TODO: Implement function declaration
         # 1. Create a closure with the current environment
