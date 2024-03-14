@@ -78,21 +78,23 @@ end
 
 
 function handle_and(expr::Expr, env::Env)
+    val = true
     for arg in expr.args
         val = eval_expr(arg, env)
-        if !val
+        if val == false
             return false
         end
     end
-    return true
+    return val
 end
 
 
 function handle_or(expr::Expr, env::Env)
+    val = false
     for arg in expr.args
         val = eval_expr(arg, env)
-        if val
-            return true
+        if val != false
+            return val
         end
     end
     return false
@@ -255,6 +257,7 @@ function eval_expr(expr::Expr, env::Env)
         eval_expr.(expr.args, Ref(env))  # TODO: Check if this is the correct way to pass the environment (LineNumberNode)
     end
 end
+
 
 # --------------------------------------------------------------------------- #
 # ------------------------------ REPL Functions ----------------------------- #
