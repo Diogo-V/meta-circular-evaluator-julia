@@ -110,14 +110,13 @@ function handle_block(expr::Expr, env::Env)
 end
 
 
-# Handle assignment expressions
-function handle_assignment(expr::Expr, env::Env)
+function handle_assignment(expr::Expr, eval_env::Env, storing_env::Env)
     symbol = expr.args[1]
 
     # If the symbol is a variable
     if isa(symbol, Symbol)
-        value = eval_expr(expr.args[2], env)
-        set_value!(env, symbol, value)
+        value = eval_expr(expr.args[2], eval_env)
+        set_value!(storing_env, symbol, value)
 
     elseif isa(symbol, Expr) && symbol.head === :call
         name = symbol.args[1]
@@ -126,10 +125,10 @@ function handle_assignment(expr::Expr, env::Env)
 
         # Create a new function with the given arguments and body
         func = (args_vals...) -> begin
-            new_env = extend_env(env, Dict{Symbol,Any}(zip(args, args_vals)))
+            new_env = extend_env(eval_env, Dict{Symbol,Any}(zip(args, args_vals)))
             eval_expr(body, new_env)
         end
-        set_value!(env, name, func)
+        set_value!(storing_env, name, func)
         # return the string <function>
         return "<function>"
     end
@@ -169,6 +168,17 @@ function handle_anonymous_function(expr::Expr, env::Env)
         eval_expr(body_expr, anon_env)
     end
     return anon_func
+end
+
+
+function handle_global(expr::Expr, env::Env)
+    val = nothing
+    for arg in expr.args
+        if arg.head === :(=)  # Global keywords are always assignments, but we do a 2nd check
+            val = handle_assignment(arg, env, global_env)
+        end
+    end
+    return val
 end
 
 
@@ -224,16 +234,13 @@ function eval_expr(expr::Expr, env::Env)
     elseif expr.head === :let
         handle_let(expr, env)
     elseif expr.head === :(=)
-        handle_assignment(expr, env)
+        handle_assignment(expr, env, env)
     elseif expr.head === :function
         # TODO: Implement function declaration
         # 1. Create a closure with the current environment
         # 2. Put in the environment
     elseif expr.head === :global
-        # TODO: Implement global
-        # 1. Evaluate the expression
-        # 2. Put in the global environment
-        #handle_global(expr, global_env)
+        handle_global(expr, env)
     elseif expr.head === :block || expr.head === :toplevel
         handle_block(expr, env)
     elseif expr.head === :&&
