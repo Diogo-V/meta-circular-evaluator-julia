@@ -67,7 +67,6 @@ end
 
 function handle_if(expr::Expr, env::Env)
     cond = eval_expr(expr.args[1], env)
-    # print_args(expr.args) # <- Debugging
     if cond
         return eval_expr(expr.args[2], env)  # True branch
     elseif length(expr.args) > 2 # If there is an else branch
@@ -81,7 +80,7 @@ function handle_and(expr::Expr, env::Env)
     val = true
     for arg in expr.args
         val = eval_expr(arg, env)
-        if val == false
+        if val == false  # An expression can evaluate to something other than a boolean
             return false
         end
     end
@@ -93,7 +92,7 @@ function handle_or(expr::Expr, env::Env)
     val = false
     for arg in expr.args
         val = eval_expr(arg, env)
-        if val != false
+        if val != false  # An expression can evaluate to something other than a boolean
             return val
         end
     end
@@ -278,7 +277,6 @@ end
 
 function main(text::String, env::Env)
     expr = Meta.parse(text)
-    # println(expr) # <- Debugging
     eval_expr(expr, env)
 end
 
