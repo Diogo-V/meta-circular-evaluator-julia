@@ -1,0 +1,4 @@
+begin
+    quotient_or_true(a, b) = b == 0 || a/b
+    quotient_or_true(6, 2)
+end

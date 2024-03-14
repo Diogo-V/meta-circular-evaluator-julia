@@ -1,4 +1,8 @@
-# Define basic data structures
+# --------------------------------------------------------------------------- #
+# ------------------------- Environment Management -------------------------- #
+# --------------------------------------------------------------------------- #
+
+
 struct Env
     vars::Dict{Symbol,Any}
     parent::Union{Nothing,Env}
@@ -13,15 +17,18 @@ function extend_env(parent_env::Env)
     return Env(Dict{Symbol,Any}(), parent_env)
 end
 
+
 function extend_env(parent_env::Env, vars::AbstractDict{Symbol,Any})
     new_vars = Dict{Symbol,Any}(vars)
     return Env(new_vars, parent_env)
 end
 
+
 function extend_env(env::Env, vars::Dict{Symbol,Any})
     new_env = Env(vars, env)
     return new_env
 end
+
 
 # This is a debugging function to print the arguments of a function
 function print_args(args)
@@ -46,10 +53,11 @@ function set_value!(env::Env, sym::Symbol, val)
 end
 
 
+# --------------------------------------------------------------------------- #
+# --------------------------- Statement Handling ---------------------------- #
+# --------------------------------------------------------------------------- #
 
 
-
-# Handle different expression
 function handle_call(expr::Expr, env::Env)
     f = eval_expr(expr.args[1], env)
     args = [eval_expr(arg, env) for arg in expr.args[2:end]]
@@ -59,7 +67,6 @@ end
 
 function handle_if(expr::Expr, env::Env)
     cond = eval_expr(expr.args[1], env)
-    # print_args(expr.args) # <- Debugging
     if cond
         return eval_expr(expr.args[2], env)  # True branch
     elseif length(expr.args) > 2 # If there is an else branch
@@ -70,21 +77,23 @@ end
 
 
 function handle_and(expr::Expr, env::Env)
+    val = true
     for arg in expr.args
         val = eval_expr(arg, env)
-        if !val
+        if val == false  # An expression can evaluate to something other than a boolean
             return false
         end
     end
-    return true
+    return val
 end
 
 
 function handle_or(expr::Expr, env::Env)
+    val = false
     for arg in expr.args
         val = eval_expr(arg, env)
-        if val
-            return true
+        if val != false  # An expression can evaluate to something other than a boolean
+            return val
         end
     end
     return false
@@ -102,14 +111,13 @@ function handle_block(expr::Expr, env::Env)
 end
 
 
-# Handle assignment expressions
-function handle_assignment(expr::Expr, env::Env)
+function handle_assignment(expr::Expr, eval_env::Env, storing_env::Env)
     symbol = expr.args[1]
 
     # If the symbol is a variable
     if isa(symbol, Symbol)
-        value = eval_expr(expr.args[2], env)
-        set_value!(env, symbol, value)
+        value = eval_expr(expr.args[2], eval_env)
+        set_value!(storing_env, symbol, value)
 
     elseif isa(symbol, Expr) && symbol.head === :call
         name = symbol.args[1]
@@ -118,15 +126,14 @@ function handle_assignment(expr::Expr, env::Env)
 
         # Create a new function with the given arguments and body
         func = (args_vals...) -> begin
-            new_env = extend_env(env, Dict{Symbol,Any}(zip(args, args_vals)))
+            new_env = extend_env(eval_env, Dict{Symbol,Any}(zip(args, args_vals)))
             eval_expr(body, new_env)
         end
-        set_value!(env, name, func)
+        set_value!(storing_env, name, func)
         # return the string <function>
         return "<function>"
     end
 end
-
 
 
 function handle_let(expr::Expr, old_env::Env)
@@ -165,7 +172,22 @@ function handle_anonymous_function(expr::Expr, env::Env)
 end
 
 
-# Evaluation functions
+function handle_global(expr::Expr, env::Env)
+    val = nothing
+    for arg in expr.args
+        if arg.head === :(=)  # Global keywords are always assignments, but we do a 2nd check
+            val = handle_assignment(arg, env, global_env)
+        end
+    end
+    return val
+end
+
+
+# --------------------------------------------------------------------------- #
+# -------------------------- Evaluate Expressions --------------------------- #
+# --------------------------------------------------------------------------- #
+
+
 function eval_expr(expr::Symbol, env::Env)
     val = get_value(env, expr)  # Tries to fetch the value of the symbol from the environment
 
@@ -213,16 +235,13 @@ function eval_expr(expr::Expr, env::Env)
     elseif expr.head === :let
         handle_let(expr, env)
     elseif expr.head === :(=)
-        handle_assignment(expr, env)
+        handle_assignment(expr, env, env)
     elseif expr.head === :function
         # TODO: Implement function declaration
         # 1. Create a closure with the current environment
         # 2. Put in the environment
     elseif expr.head === :global
-        # TODO: Implement global
-        # 1. Evaluate the expression
-        # 2. Put in the global environment
-        #handle_global(expr, global_env)
+        handle_global(expr, env)
     elseif expr.head === :block || expr.head === :toplevel
         handle_block(expr, env)
     elseif expr.head === :&&
@@ -239,14 +258,11 @@ function eval_expr(expr::Expr, env::Env)
 end
 
 
-function main(text::String, env::Env)
-    expr = Meta.parse(text)
-    # println(expr) # <- Debugging
-    eval_expr(expr, env)
-end
+# --------------------------------------------------------------------------- #
+# ------------------------------ REPL Functions ----------------------------- #
+# --------------------------------------------------------------------------- #
 
 
-# REPL
 function read_from_stdin()
     lines = []
     while true  # Julia does not have do-while, so we use this trick
@@ -258,6 +274,18 @@ function read_from_stdin()
     return single_line
 end
 
+
+function main(text::String, env::Env)
+    expr = Meta.parse(text)
+    eval_expr(expr, env)
+end
+
+
+function main(expr::Expr, env::Env)
+    eval_expr(expr, env)
+end
+
+
 function metajulia_repl()
     env = global_env
     while true
@@ -268,7 +296,12 @@ function metajulia_repl()
     end
 end
 
-# For tests
+
+function metajulia_eval(expr::Expr)
+    main(expr, global_env)
+end
+
+
 function run_test()
     env = global_env
     program = read_from_stdin()
