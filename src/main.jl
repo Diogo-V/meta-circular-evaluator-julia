@@ -1,4 +1,8 @@
-# Define basic data structures
+# --------------------------------------------------------------------------- #
+# ------------------------- Environment Management -------------------------- #
+# --------------------------------------------------------------------------- #
+
+
 struct Env
     vars::Dict{Symbol,Any}
     parent::Union{Nothing,Env}
@@ -13,15 +17,18 @@ function extend_env(parent_env::Env)
     return Env(Dict{Symbol,Any}(), parent_env)
 end
 
+
 function extend_env(parent_env::Env, vars::AbstractDict{Symbol,Any})
     new_vars = Dict{Symbol,Any}(vars)
     return Env(new_vars, parent_env)
 end
 
+
 function extend_env(env::Env, vars::Dict{Symbol,Any})
     new_env = Env(vars, env)
     return new_env
 end
+
 
 # This is a debugging function to print the arguments of a function
 function print_args(args)
@@ -46,10 +53,11 @@ function set_value!(env::Env, sym::Symbol, val)
 end
 
 
+# --------------------------------------------------------------------------- #
+# --------------------------- Statement Handling ---------------------------- #
+# --------------------------------------------------------------------------- #
 
 
-
-# Handle different expression
 function handle_call(expr::Expr, env::Env)
     f = eval_expr(expr.args[1], env)
     args = [eval_expr(arg, env) for arg in expr.args[2:end]]
@@ -128,7 +136,6 @@ function handle_assignment(expr::Expr, env::Env)
 end
 
 
-
 function handle_let(expr::Expr, old_env::Env)
     env = extend_env(old_env)
 
@@ -165,7 +172,11 @@ function handle_anonymous_function(expr::Expr, env::Env)
 end
 
 
-# Evaluation functions
+# --------------------------------------------------------------------------- #
+# -------------------------- Evaluate Expressions --------------------------- #
+# --------------------------------------------------------------------------- #
+
+
 function eval_expr(expr::Symbol, env::Env)
     val = get_value(env, expr)  # Tries to fetch the value of the symbol from the environment
 
@@ -238,15 +249,11 @@ function eval_expr(expr::Expr, env::Env)
     end
 end
 
-
-function main(text::String, env::Env)
-    expr = Meta.parse(text)
-    # println(expr) # <- Debugging
-    eval_expr(expr, env)
-end
+# --------------------------------------------------------------------------- #
+# ------------------------------ REPL Functions ----------------------------- #
+# --------------------------------------------------------------------------- #
 
 
-# REPL
 function read_from_stdin()
     lines = []
     while true  # Julia does not have do-while, so we use this trick
@@ -258,6 +265,19 @@ function read_from_stdin()
     return single_line
 end
 
+
+function main(text::String, env::Env)
+    expr = Meta.parse(text)
+    # println(expr) # <- Debugging
+    eval_expr(expr, env)
+end
+
+
+function main(expr::Expr, env::Env)
+    eval_expr(expr, env)
+end
+
+
 function metajulia_repl()
     env = global_env
     while true
@@ -268,7 +288,12 @@ function metajulia_repl()
     end
 end
 
-# For tests
+
+function metajulia_eval(expr::Expr)
+    main(expr, global_env)
+end
+
+
 function run_test()
     env = global_env
     program = read_from_stdin()
