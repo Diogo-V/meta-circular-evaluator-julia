@@ -40,25 +40,22 @@ global_env = Env(Dict{Symbol,Any}(), nothing)
 # --------------------------------------------------------------------------- #
 
 
-function handle_make_function(args::Any, body::Expr, env::Env)
-    # 1. Creates a new environment for the function (is the function scope)
-    scope = extend_env(env)
-
-    # 2. Creates a new function
+function handle_make_function(args::Any, body::Expr, scope::Env)
+    # 1. Creates a new function
     func = (params...) -> begin
-        # 2.1. Takes the arguments and binds them to the function parameters
+        # 1.1. Takes the arguments and binds them to the function parameters
         bindings = Dict{Symbol,Any}(zip(args, params))
 
-        # 2.2. Before evaluating the body, we extend the function scope with the bindings
+        # 1.2. Before evaluating the body, we extend the function scope with the bindings
         for (var, value) in bindings
             set_value!(scope, var, value)
         end
 
-        # 2.3. Evaluates the body in the function scope
+        # 1.3. Evaluates the body in the function scope
         eval_expr(body, scope)
     end
 
-    # 3. Return the function
+    # 2. Return the function
     return func
 end
 
@@ -69,9 +66,17 @@ end
 
 
 function handle_call(expr::Expr, env::Env)
-    f = eval_expr(expr.args[1], env)
-    args = [eval_expr(arg, env) for arg in expr.args[2:end]]
-    f(args...)
+    func_name = expr.args[1]
+    func_args = expr.args[2:end]
+
+    # 1. Extracts the function expression from the environment
+    func = eval_expr(func_name, env)
+
+    # 2. Evaluates the arguments before binding them to the function parameters
+    args = [eval_expr(arg, env) for arg in func_args]
+
+    # 3. Calls the function with the evaluated arguments and returns the result
+    func(args...)
 end
 
 
@@ -325,20 +330,3 @@ end
 if abspath(PROGRAM_FILE) == @__FILE__
     run_test()
 end
-
-
-# --------------------------------------------------------------------------- #
-
-s = :(
-begin
-    incr() =
-        let priv_counter = 0
-            priv_counter = priv_counter + 1
-        end
-    incr()
-    incr()
-    incr()
-end      
-)
-
-metajulia_eval(s)
