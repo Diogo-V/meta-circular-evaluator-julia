@@ -1,7 +1,7 @@
 TESTS_DIR = tests
 
-t1:
+p1:
 	@julia $(TESTS_DIR)/p1.jl
 
-test: t1
+test: p1
 	
