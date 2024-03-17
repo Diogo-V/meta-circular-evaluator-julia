@@ -1,4 +1,0 @@
-begin
-    quotient_or_false(a, b) = !(b == 0) && a/b
-    quotient_or_false(6, 2)
-end

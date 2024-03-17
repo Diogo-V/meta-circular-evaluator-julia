@@ -9,18 +9,8 @@ struct Env
 end
 
 
-global_env = Env(Dict{Symbol,Any}(), nothing)
-
-
-# Function to extend an environment by creating a new sub-environment
 function extend_env(parent_env::Env)
     return Env(Dict{Symbol,Any}(), parent_env)
-end
-
-
-function extend_env(parent_env::Env, vars::AbstractDict{Symbol,Any})
-    new_vars = Dict{Symbol,Any}(vars)
-    return Env(new_vars, parent_env)
 end
 
 
@@ -30,26 +20,43 @@ function extend_env(env::Env, vars::Dict{Symbol,Any})
 end
 
 
-# This is a debugging function to print the arguments of a function
-function print_args(args)
-    count = 1
-    for arg in args
-        println("Argument $count head: $(arg.head)")
-        println("Argument $count args: $(arg)")
-        count += 1
-    end
-end
-
-
 function get_value(env::Env, sym::Symbol)
     haskey(env.vars, sym) && return env.vars[sym]
-    env.parent === nothing && return nothing
+    env.parent === nothing && return nothing  # TODO(diogo): This is an error case
     get_value(env.parent, sym)
 end
 
 
-function set_value!(env::Env, sym::Symbol, val)
+function set_value!(env::Env, sym::Symbol, val::Any)
     env.vars[sym] = val
+end
+
+
+global_env = Env(Dict{Symbol,Any}(), nothing)
+
+
+# --------------------------------------------------------------------------- #
+# ------------------------------- Auxiliaries ------------------------------- #
+# --------------------------------------------------------------------------- #
+
+
+function handle_make_function(args::Any, body::Expr, scope::Env)
+    # 1. Creates a new function
+    func = (params...) -> begin
+        # 1.1. Takes the arguments and binds them to the function parameters
+        bindings = Dict{Symbol,Any}(zip(args, params))
+
+        # 1.2. Before evaluating the body, we extend the function scope with the bindings
+        for (var, value) in bindings
+            set_value!(scope, var, value)
+        end
+
+        # 1.3. Evaluates the body in the function scope
+        eval_expr(body, scope)
+    end
+
+    # 2. Return the function
+    return func
 end
 
 
@@ -59,9 +66,17 @@ end
 
 
 function handle_call(expr::Expr, env::Env)
-    f = eval_expr(expr.args[1], env)
-    args = [eval_expr(arg, env) for arg in expr.args[2:end]]
-    f(args...)
+    func_name = expr.args[1]
+    func_args = expr.args[2:end]
+
+    # 1. Extracts the function expression from the environment
+    func = eval_expr(func_name, env)
+
+    # 2. Evaluates the arguments before binding them to the function parameters
+    args = [eval_expr(arg, env) for arg in func_args]
+
+    # 3. Calls the function with the evaluated arguments and returns the result
+    func(args...)
 end
 
 
@@ -112,63 +127,65 @@ end
 
 
 function handle_assignment(expr::Expr, eval_env::Env, storing_env::Env)
-    symbol = expr.args[1]
+    lhs = expr.args[1]
+    rhs = expr.args[2]
 
-    # If the symbol is a variable
-    if isa(symbol, Symbol)
-        value = eval_expr(expr.args[2], eval_env)
-        set_value!(storing_env, symbol, value)
+    # 1. Check if we are assigning to a variable or a function
+    is_func_def = isa(lhs, Expr) && lhs.head == :call
 
-    elseif isa(symbol, Expr) && symbol.head === :call
-        name = symbol.args[1]
-        args = symbol.args[2:end]
-        body = expr.args[2]
+    # 2. Handle the assignment accordingly
+    var, value = nothing, nothing
+    if is_func_def
+        fn_name = lhs.args[1]
+        args = lhs.args[2:end]
+        body = rhs
+        func = handle_make_function(args, body, eval_env)
 
-        # Create a new function with the given arguments and body
-        func = (args_vals...) -> begin
-            new_env = extend_env(eval_env, Dict{Symbol,Any}(zip(args, args_vals)))
-            eval_expr(body, new_env)
-        end
-        set_value!(storing_env, name, func)
-        # return the string <function>
-        return "<function>"
+        var = fn_name
+        value = func
+    else
+        var = lhs
+        value = eval_expr(rhs, eval_env)  # Evaluate the right-hand side to obtain the value
     end
+
+    # 3. Store the value in the environment
+    set_value!(storing_env, var, value)
+
+    # 4. Return the value of the expression (right-hand side)
+    return value
 end
 
 
 function handle_let(expr::Expr, old_env::Env)
-    env = extend_env(old_env)
+    assignments = expr.args[1]
+    body = expr.args[2]
 
-    vals = [eval_expr(arg, env) for arg in expr.args]
+    # 1. Create a new environment with the old one as parent
+    new_env = extend_env(old_env)
 
-    if isa(vals[end], Symbol)
-        return get_value(env, vals[end])
-    else
-        return vals[end]
-    end
+    # 2. Evaluate the assignments in the new environment
+    eval_expr(assignments, new_env)
+
+    # 3. Evaluate the body in the new environment
+    val = eval_expr(body, new_env)
+
+    # 4. Return the result of the body block
+    return val
 end
 
 
 function handle_anonymous_function(expr::Expr, env::Env)
-    args_expr = expr.args[1]
-    body_expr = expr.args[2]
+    args = expr.args[1]
+    body = expr.args[2]
 
-    # Make sure args_expr is a collection
-    args_expr = isa(args_expr, Symbol) ? [args_expr] : args_expr.args
+    # 1. Makes sure the arguments are a vector of symbols
+    args = isa(args, Symbol) ? [args] : args.args
 
-    anon_func = (args_vals...) -> begin
-        # Zip together argument names with values and create a dictionary
-        args_dict = Dict{Symbol, Any}()
-        for (arg_name, arg_val) in zip(args_expr, args_vals)
-            args_dict[arg_name] = arg_val
-        end
+    # 2. Creates a function 
+    func = handle_make_function(args, body, env)
 
-        # Create a new environment for the anonymous function
-        anon_env = extend_env(env, args_dict)
-        # Evaluate the body of the anonymous function in the new environment
-        eval_expr(body_expr, anon_env)
-    end
-    return anon_func
+    # 3. Returns the function
+    return func
 end
 
 
@@ -227,7 +244,7 @@ end
 
 
 function eval_expr(expr::Expr, env::Env)
-    if expr.head === :call  # TODO: revisit annonimous functions
+    if expr.head === :call
         handle_call(expr, env)
     elseif expr.head === :if || expr.head === :elseif
         # Probably this should handle elseif as well
@@ -299,17 +316,4 @@ end
 
 function metajulia_eval(expr::Expr)
     main(expr, global_env)
-end
-
-
-function run_test()
-    env = global_env
-    program = read_from_stdin()
-    val = main(program, env)
-    println(val)
-end
-
-
-if abspath(PROGRAM_FILE) == @__FILE__
-    run_test()
 end
