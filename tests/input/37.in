@@ -1,4 +1,0 @@
-let priv_balance = 0
-    global deposit = quantity -> priv_balance = priv_balance + quantity
-    global withdraw = quantity -> priv_balance = priv_balance - quantity
-end

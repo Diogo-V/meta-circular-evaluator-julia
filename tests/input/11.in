@@ -1,7 +1,0 @@
-if 3 < 2
-    1
-elseif 2 > 3
-    2
-else
-    0
-end

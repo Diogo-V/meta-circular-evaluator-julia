@@ -317,16 +317,3 @@ end
 function metajulia_eval(expr::Expr)
     main(expr, global_env)
 end
-
-
-function run_test()
-    env = global_env
-    program = read_from_stdin()
-    val = main(program, env)
-    println(val)
-end
-
-
-if abspath(PROGRAM_FILE) == @__FILE__
-    run_test()
-end
