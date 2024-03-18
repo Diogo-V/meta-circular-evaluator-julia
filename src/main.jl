@@ -83,8 +83,6 @@ end
 function eval(expr::Expr, env::Env)
     eval_expr(expr, env)
 end
-
-
 set_value!(global_env, :eval, eval)
 
 
@@ -241,8 +239,12 @@ end
 function handle_global(expr::Expr, env::Env)
     val = nothing
     for arg in expr.args
-        if arg.head === :(=)  # Global keywords are always assignments, but we do a 2nd check
+        if arg.head === :(=)
             val = handle_assignment(arg, env, global_env)
+        elseif arg.head === :(:=)
+            val = handle_fexpr(arg, env)
+        else
+            throw(ArgumentError("Invalid global statement"))
         end
     end
     return val
