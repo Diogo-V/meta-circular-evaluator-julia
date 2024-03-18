@@ -61,17 +61,18 @@ function make_function(args::Any, body::Expr, scope::Env)
     # 1. Creates a new function
     func = (params...) -> begin
 
+        # 1.1. Contrary to the make_fexpr, we need to evaluate the arguments
         evaled_params = [eval_expr(param, scope) for param in params]
 
-        # 1.1. Takes the arguments and binds them to the function parameters
+        # 1.2. Takes the arguments and binds them to the function parameters
         bindings = Dict{Symbol,Any}(zip(args, evaled_params))
 
-        # 1.2. Before evaluating the body, we extend the function scope with the bindings
+        # 1.3. Before evaluating the body, we extend the function scope with the bindings
         for (var, value) in bindings
             set_value!(scope, var, value)
         end
 
-        # 1.3. Evaluates the body in the function scope
+        # 1.4. Evaluates the body in the function scope
         eval_expr(body, scope)
     end
 
@@ -118,6 +119,7 @@ function handle_call(expr::Expr, env::Env)
     # 1. Extracts the function expression from the environment
     func = eval_expr(func_name, env)
 
+    # 2. If we have a primitive function, we need to evaluate the arguments
     if is_primitive(func_name, env)
         func_args = [eval_expr(arg, env) for arg in func_args]
     end
