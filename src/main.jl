@@ -81,9 +81,7 @@ function make_function(args::Any, body::Expr, scope::Env)
 end
 
 
-function eval(expr::Expr, env::Env)
-    eval_expr(expr, env)
-end
+
 set_value!(global_env, :eval, eval)
 
 
@@ -96,7 +94,6 @@ function make_fexpr(args::Any, body::Union{Expr, Symbol}, scope::Env)
         # 1.2. Before evaluating the body, we extend the function scope with the bindings
         for (var, value) in bindings
             set_value!(scope, var, value)
-            @eval $var = $value
         end
 
         # 1.3. Evaluates the body in the function scope
@@ -118,8 +115,20 @@ function handle_call(expr::Expr, env::Env)
     func_name = expr.args[1]
     func_args = expr.args[2:end]
 
+    println("func_name: ", func_name)
+    println("func_args: ", func_args)
+    println("env: ", env)
+
     # 1. Extracts the function expression from the environment
     func = eval_expr(func_name, env)
+
+    # Check the call on eval
+    if func_name == :eval
+        expr = func_args[1]
+        evaluated = eval_expr(expr, env)
+        evaluated = eval_expr(evaluated, env)
+        return func(evaluated)
+    end
 
     # 2. If we have a primitive function, we need to evaluate the arguments
     if is_primitive(func_name, env)
