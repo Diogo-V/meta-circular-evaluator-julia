@@ -96,10 +96,12 @@ function make_fexpr(args::Any, body::Union{Expr, Symbol}, scope::Env)
         # 1.2. Before evaluating the body, we extend the function scope with the bindings
         for (var, value) in bindings
             set_value!(scope, var, value)
+            @eval $var = $value
         end
 
         # 1.3. Evaluates the body in the function scope
         eval_expr(body, scope)
+
     end
 
     # 2. Return the function
@@ -316,6 +318,7 @@ function eval_expr(expr::LineNumberNode, env::Env)
 end
 
 
+
 function eval_expr(expr::Expr, env::Env)
     if expr.head === :call
         handle_call(expr, env)
@@ -383,7 +386,7 @@ function metajulia_repl()
     while true
         print(">> ")
         program = read_from_stdin()
-        val = main(program, env)
+        val = main(program, env) 
         println(val)
     end
 end
