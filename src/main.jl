@@ -114,10 +114,10 @@ end
 function handle_call(expr::Expr, env::Env)
     func_name = expr.args[1]
     func_args = expr.args[2:end]
-    println("11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111")
-    println("func_name: ", func_name)
-    println("func_args: ", func_args)
-    println("env: ", env)
+    # println("11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111")
+    # println("func_name: ", func_name)
+    # println("func_args: ", func_args)
+    # println("env: ", env)
 
     # 1. Extracts the function expression from the environment
     func = eval_expr(func_name, env)
@@ -135,8 +135,15 @@ function handle_call(expr::Expr, env::Env)
         func_args = [eval_expr(arg, env) for arg in func_args]
     end
 
+    #2.5. If we are inside let block, evaluate the arguments
+    if env.parent !== nothing
+        func_args = [eval_expr(arg, env) for arg in func_args]
+    end
+
+
     # 3. Calls the function with the evaluated arguments and returns the result
     func(func_args...)
+
 end
 
 
@@ -209,10 +216,11 @@ function handle_assignment(expr::Expr, eval_env::Env, storing_env::Env)
 
     # 3. Store the value in the environment
     set_value!(storing_env, var, value)
-    println("=====================================================================================================")
-    println("storing_env: ", storing_env)   
-    println("var: ", var)
-    println("value: ", value)
+    # println("=====================================================================================================")
+    # println("storing_env: ", storing_env)   
+    # println("eval_env: ", eval_env)
+    # println("var: ", var)
+    # println("value: ", value)
 
     # 4. Return the value of the expression (right-hand side)
     return value
@@ -336,11 +344,13 @@ end
 function eval_expr(expr::Expr, env::Env)
     if expr.head === :call
         handle_call(expr, env)
+
     elseif expr.head === :if || expr.head === :elseif
         # Probably this should handle elseif as well
         handle_if(expr, env)
     elseif expr.head === :let
         handle_let(expr, env)
+
     elseif expr.head === :(=)
         handle_assignment(expr, env, env)
     elseif expr.head === :(:=)
