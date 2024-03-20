@@ -82,7 +82,7 @@ end
 
 
 
-set_value!(global_env, :eval, eval)
+#set_value!(global_env, :eval, eval)
 
 
 function make_fexpr(args::Any, body::Union{Expr, Symbol}, scope::Env)
@@ -114,7 +114,7 @@ end
 function handle_call(expr::Expr, env::Env)
     func_name = expr.args[1]
     func_args = expr.args[2:end]
-
+    println("11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111")
     println("func_name: ", func_name)
     println("func_args: ", func_args)
     println("env: ", env)
@@ -200,7 +200,6 @@ function handle_assignment(expr::Expr, eval_env::Env, storing_env::Env)
         args = lhs.args[2:end]
         body = rhs
         func = make_function(args, body, eval_env)
-
         var = fn_name
         value = func
     else
@@ -210,6 +209,10 @@ function handle_assignment(expr::Expr, eval_env::Env, storing_env::Env)
 
     # 3. Store the value in the environment
     set_value!(storing_env, var, value)
+    println("=====================================================================================================")
+    println("storing_env: ", storing_env)   
+    println("var: ", var)
+    println("value: ", value)
 
     # 4. Return the value of the expression (right-hand side)
     return value
@@ -222,6 +225,8 @@ function handle_let(expr::Expr, old_env::Env)
 
     # 1. Create a new environment with the old one as parent
     new_env = extend_env(old_env)
+    #println("new_env: ", new_env)
+    #println("assignments: ", assignments)
 
     # 2. Evaluate the assignments in the new environment
     eval_expr(assignments, new_env)
