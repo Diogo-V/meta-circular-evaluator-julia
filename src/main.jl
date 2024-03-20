@@ -97,9 +97,10 @@ function make_fexpr(args::Any, body::Union{Expr, Symbol}, scope::Env)
         for (var, value) in bindings
             set_value!(scope, var, value)
         end
-
+        
         # 1.3. Evaluates the body in the function scope
         eval_expr(body, scope)
+        
     end
 
     # 2. Return the function
