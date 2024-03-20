@@ -117,7 +117,7 @@ function handle_call(expr::Expr, env::Env)
     # println("11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111")
     # println("func_name: ", func_name)
     # println("func_args: ", func_args)
-    # println("env: ", env)
+    # println("env: ", env) 
 
     # 1. Extracts the function expression from the environment
     func = eval_expr(func_name, env)
@@ -135,12 +135,12 @@ function handle_call(expr::Expr, env::Env)
         func_args = [eval_expr(arg, env) for arg in func_args]
     end
 
-
-    #2.5. If we are inside let block, we need to evaluate the arguments
+    
+     #2.5. If we are inside let block, we need to evaluate the arguments
     # if env.parent !== nothing
     #     func_args = [eval_expr(arg, env) for arg in func_args]
     # end
-
+    
 
     # 3. Calls the function with the evaluated arguments and returns the result
     func(func_args...)
