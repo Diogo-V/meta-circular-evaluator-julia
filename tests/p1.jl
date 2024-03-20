@@ -175,4 +175,28 @@ fn = metajulia_eval
             deposit(200); withdraw(50)
         )) == 150
     end
+
+    @testset verbose = true "Let variables inside functions" begin
+        # If a variable is insdie let, it should be seen
+        @test fn(:(
+            let x = 1
+                x + 1
+            end
+        )) == 2
+
+        @test fn(:(
+            fn(x) = x + 1;
+            let x = 1
+                fn(x)
+            end
+        )) == 2
+
+        @test fn(:(
+            x = 100;
+            fn(x) = x*2;
+            let x = 1
+                fn(x)
+            end
+        )) == 2
+    end
 end

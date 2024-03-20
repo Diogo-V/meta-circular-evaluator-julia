@@ -85,7 +85,7 @@ end
 #set_value!(global_env, :eval, eval)
 
 
-function make_fexpr(args::Any, body::Union{Expr, Symbol}, scope::Env)
+function make_fexpr(args::Any, body::Union{Expr,Symbol}, scope::Env)
     # 1. Creates a new function
     func = (params...) -> begin
         # 1.1. Takes the arguments and binds them to the function parameters
@@ -135,10 +135,11 @@ function handle_call(expr::Expr, env::Env)
         func_args = [eval_expr(arg, env) for arg in func_args]
     end
 
-    #2.5. If we are inside let block, evaluate the arguments
-    if env.parent !== nothing
-        func_args = [eval_expr(arg, env) for arg in func_args]
-    end
+
+    #2.5. If we are inside let block, we need to evaluate the arguments
+    # if env.parent !== nothing
+    #     func_args = [eval_expr(arg, env) for arg in func_args]
+    # end
 
 
     # 3. Calls the function with the evaluated arguments and returns the result
@@ -410,7 +411,7 @@ function metajulia_repl()
     while true
         print(">> ")
         program = read_from_stdin()
-        val = main(program, env) 
+        val = main(program, env)
         println(val)
     end
 end
