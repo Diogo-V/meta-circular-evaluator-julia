@@ -167,6 +167,11 @@ function handle_call(expr::Expr, env::Env)
         return func(func_args...)
     end
 
+    # check if we are inside a let
+    if env.parent !== nothing
+        return func.body(func_args..., env, env)
+    end
+
     # 3. Calls the function with the evaluated arguments and returns the result
     func.body(func_args..., env, func.scope)
 end
@@ -447,24 +452,12 @@ end
 #         1 + debug(x + 1)
 #     end
 # )
-# 
+# # 
 # x = :(
-#     let r = eval(expr);
-#         s = "" + expr + " => " + r
-#         return s
+#     pr(l) = l*2;
+#     let x = 1
+#         pr(x)
 #     end
 # )
+# metajulia_eval(x)
 
-# dump(s)
-# 
-# metajulia_eval(s)
-
-x = :(
-    triple(x) = x * 3;
-    sum(f, a, b) = a > b ? 0 : f(a) + sum(f, a + 1, b);
-    sum(triple, 1, 10)
-)
-
-dump(x)
-
-metajulia_eval(x)
