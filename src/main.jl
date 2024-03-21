@@ -117,6 +117,7 @@ end
 function eval(expr::Union{Symbol, Expr}, env::Env)
     eval_expr(expr, env)
 end
+
 set_value!(global_env, :eval, eval)
 
 
@@ -158,10 +159,12 @@ function handle_call(expr::Expr, env::Env)
     # 1. Extracts the function expression from the environment
     func = eval_expr(func_name, env)
 
-    # 2. If the function is an eval function, we need to pass the current environment
-    # if func_name === :eval
-    #     func_args = [func_args..., env]
-    # end
+    # 2.5 EVAL HANDLING
+    # IDK WHY THIS WORKS BUT LOOKS LIKE THIS WORKS (NOT FOR P2 ONLY FOR P1)
+    if func_name === :eval
+        evaled = eval_expr(eval_expr(func_args[1], env), env)
+        return evaled
+    end
 
     # 2. If we have a primitive function, we need to evaluate the arguments and call it
     if is_primitive(func_name, env)
@@ -172,7 +175,7 @@ function handle_call(expr::Expr, env::Env)
     # check if we are inside a let
     if env.parent !== nothing
         return func.body(func_args..., env, env)
-    end 
+    end     
 
     # 3. Calls the function with the evaluated arguments and returns the result
     func.body(func_args..., env, func.scope)
@@ -457,8 +460,10 @@ end
 # # 
 
 x = :(
-    identity_fexpr(x) := x;
-    identity_fexpr(1 + 2)
+    pr(x):=eval(x);
+    let a = 1
+        pr(a)
+    end;
 )
 
 metajulia_eval(x)
