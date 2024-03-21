@@ -9,6 +9,13 @@ struct Env
 end
 
 
+# struct Function
+#     args::Any
+#     body::Expr
+#     scope::Env
+# end
+
+
 function extend_env(parent_env::Env)
     return Env(Dict{Symbol,Any}(), parent_env)
 end
@@ -28,6 +35,23 @@ end
 
 
 function set_value!(env::Env, sym::Symbol, val::Any)
+
+    if env === global_env
+        env.vars[sym] = val
+        return
+    end
+
+    # 1. We iterate over the environment chain to find the first environment where the symbol is defined
+    tmp = env
+    while tmp !== nothing
+        if haskey(tmp.vars, sym) && tmp !== global_env
+            tmp.vars[sym] = val
+            return
+        end
+        tmp = tmp.parent
+    end
+
+    # 2. If the symbol is not defined in any environment, we define it in the first one
     env.vars[sym] = val
 end
 
@@ -57,9 +81,14 @@ function is_primitive(expr::Symbol, env::Env)
 end
 
 
-function make_function(args::Any, body::Expr, scope::Env)
+function make_function(args::Any, body::Expr, env::Env)
+
+    # 1. Creates a new scope for the function
+    scope = extend_env(env)
+
     # 1. Creates a new function
     func = (params...) -> begin
+        params = params[1:end-1]  # We ingore the last element, which is the environment
 
         # 1.1. Contrary to the make_fexpr, we need to evaluate the arguments
         evaled_params = [eval_expr(param, scope) for param in params]
@@ -81,13 +110,17 @@ function make_function(args::Any, body::Expr, scope::Env)
 end
 
 
-function eval(expr::Expr, env::Env)
+function eval(expr::Union{Symbol, Expr}, env::Env)
     eval_expr(expr, env)
 end
 set_value!(global_env, :eval, eval)
 
 
-function make_fexpr(args::Any, body::Union{Expr, Symbol}, scope::Env)
+function make_fexpr(args::Any, body::Union{Expr, Symbol}, env::Env)
+
+    # 1. Creates a new scope for the fexpr
+    scope = extend_env(env)
+
     # 1. Creates a new function
     func = (params...) -> begin
         # 1.1. Takes the arguments and binds them to the function parameters
@@ -119,13 +152,19 @@ function handle_call(expr::Expr, env::Env)
     # 1. Extracts the function expression from the environment
     func = eval_expr(func_name, env)
 
-    # 2. If we have a primitive function, we need to evaluate the arguments
+    # 2. If the function is an eval function, we need to pass the current environment
+    # if func_name === :eval
+    #     func_args = [func_args..., env]
+    # end
+
+    # 2. If we have a primitive function, we need to evaluate the arguments and call it
     if is_primitive(func_name, env)
         func_args = [eval_expr(arg, env) for arg in func_args]
+        return func(func_args...)
     end
 
     # 3. Calls the function with the evaluated arguments and returns the result
-    func(func_args...)
+    func(func_args..., env)
 end
 
 
@@ -392,3 +431,45 @@ end
 function metajulia_eval(expr::Expr)
     main(expr, global_env)
 end
+
+
+# s = :(
+#     debug(expr) := 
+#         let r = eval(expr);
+#             s = "" + expr + " => " + r
+#             return s
+#         end ;
+#     let x = 1
+#         1 + debug(x + 1)
+#     end
+# )
+# 
+# x = :(
+#     let r = eval(expr);
+#         s = "" + expr + " => " + r
+#         return s
+#     end
+# )
+
+# dump(s)
+# 
+# metajulia_eval(s)
+
+y = :(
+    begin
+        quotient_or_false(a, b) = !(b == 0) && a/b
+        quotient_or_false(6, 2)
+    end
+)
+
+s = :(
+    incr =
+        let priv_counter = 0
+            () -> priv_counter = priv_counter + 1
+        end;
+    incr() ; incr() ; incr()
+)
+
+dump(y)
+
+metajulia_eval(y)
