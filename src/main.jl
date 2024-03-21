@@ -139,6 +139,8 @@ function make_fexpr(args::Any, body::Union{Expr, Symbol}, env::Env)
         eval_expr(body, scope)
     end
 
+    func = Function(args, func, scope)
+
     # 2. Return the function
     return func
 end
@@ -170,7 +172,7 @@ function handle_call(expr::Expr, env::Env)
     # check if we are inside a let
     if env.parent !== nothing
         return func.body(func_args..., env, env)
-    end
+    end 
 
     # 3. Calls the function with the evaluated arguments and returns the result
     func.body(func_args..., env, func.scope)
@@ -453,11 +455,11 @@ end
 #     end
 # )
 # # 
-# x = :(
-#     pr(l) = l*2;
-#     let x = 1
-#         pr(x)
-#     end
-# )
-# metajulia_eval(x)
+
+x = :(
+    identity_fexpr(x) := x;
+    identity_fexpr(1 + 2)
+)
+
+metajulia_eval(x)
 
