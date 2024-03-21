@@ -9,11 +9,11 @@ struct Env
 end
 
 
-# struct Function
-#     args::Any
-#     body::Expr
-#     scope::Env
-# end
+struct Function
+    args::Any
+    body::Any
+    scope::Env
+end
 
 
 function extend_env(parent_env::Env)
@@ -88,25 +88,29 @@ function make_function(args::Any, body::Expr, env::Env)
 
     # 1. Creates a new function
     func = (params...) -> begin
-        params = params[1:end-1]  # We ingore the last element, which is the environment
+        dyn_env = params[end - 1]  # Only needed for fexpr
+        def_env = params[end]
+        params = params[1:end-2]  # We ingore the last element, which is the environment
 
         # 1.1. Contrary to the make_fexpr, we need to evaluate the arguments
-        evaled_params = [eval_expr(param, scope) for param in params]
+        evaled_params = [eval_expr(param, def_env) for param in params]
 
         # 1.2. Takes the arguments and binds them to the function parameters
         bindings = Dict{Symbol,Any}(zip(args, evaled_params))
 
         # 1.3. Before evaluating the body, we extend the function scope with the bindings
         for (var, value) in bindings
-            set_value!(scope, var, value)
+            set_value!(def_env, var, value)
         end
 
         # 1.4. Evaluates the body in the function scope
-        eval_expr(body, scope)
+        eval_expr(body, def_env)
     end
 
+    f = Function(args, func, scope)
+
     # 2. Return the function
-    return func
+    return f
 end
 
 
@@ -164,7 +168,7 @@ function handle_call(expr::Expr, env::Env)
     end
 
     # 3. Calls the function with the evaluated arguments and returns the result
-    func(func_args..., env)
+    func.body(func_args..., env, func.scope)
 end
 
 
@@ -455,21 +459,12 @@ end
 # 
 # metajulia_eval(s)
 
-y = :(
-    begin
-        quotient_or_false(a, b) = !(b == 0) && a/b
-        quotient_or_false(6, 2)
-    end
+x = :(
+    triple(x) = x * 3;
+    sum(f, a, b) = a > b ? 0 : f(a) + sum(f, a + 1, b);
+    sum(triple, 1, 10)
 )
 
-s = :(
-    incr =
-        let priv_counter = 0
-            () -> priv_counter = priv_counter + 1
-        end;
-    incr() ; incr() ; incr()
-)
+dump(x)
 
-dump(y)
-
-metajulia_eval(y)
+metajulia_eval(x)
