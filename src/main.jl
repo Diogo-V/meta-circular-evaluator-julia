@@ -9,6 +9,19 @@ struct Env
 end
 
 
+struct Function
+    args::Any      # Contains the arguments of the function
+    body::Any      # Contains the body of the function
+    scope::Env     # Contains an environment which is an extension of the calling environment
+end
+
+
+struct CallScopedEval
+    def_fn_env::Env
+    call_fn_env::Env
+end
+
+
 function extend_env(parent_env::Env)
     return Env(Dict{Symbol,Any}(), parent_env)
 end
@@ -28,6 +41,23 @@ end
 
 
 function set_value!(env::Env, sym::Symbol, val::Any)
+
+    if env === global_env
+        env.vars[sym] = val
+        return
+    end
+
+    # 1. We iterate over the environment chain to find the first environment where the symbol is defined
+    tmp = env
+    while tmp !== nothing
+        if haskey(tmp.vars, sym) && tmp !== global_env
+            tmp.vars[sym] = val
+            return
+        end
+        tmp = tmp.parent
+    end
+
+    # 2. If the symbol is not defined in any environment, we define it in the first one
     env.vars[sym] = val
 end
 
@@ -57,50 +87,80 @@ function is_primitive(expr::Symbol, env::Env)
 end
 
 
-function make_function(args::Any, body::Expr, scope::Env)
+function make_function(args::Any, body::Expr, env::Env)
+
+    # 1. Creates a new scope for the function
+    scope = extend_env(env)
+
     # 1. Creates a new function
     func = (params...) -> begin
+        dyn_env = params[end - 1]
+        def_env = params[end]
+        params = params[1:end-2]  # We ingore the last element, which is the environment
 
         # 1.1. Contrary to the make_fexpr, we need to evaluate the arguments
-        evaled_params = [eval_expr(param, scope) for param in params]
+        evaled_params = [eval_expr(param, dyn_env) for param in params]
 
         # 1.2. Takes the arguments and binds them to the function parameters
         bindings = Dict{Symbol,Any}(zip(args, evaled_params))
 
         # 1.3. Before evaluating the body, we extend the function scope with the bindings
         for (var, value) in bindings
-            set_value!(scope, var, value)
+            set_value!(def_env, var, value)
         end
 
         # 1.4. Evaluates the body in the function scope
-        eval_expr(body, scope)
+        eval_expr(body, def_env)
     end
 
+    f = Function(args, func, scope)
+
     # 2. Return the function
-    return func
+    return f
 end
 
 
-function eval(expr::Expr, env::Env)
-    eval_expr(expr, env)
+function call_scoped_eval(params::CallScopedEval)
+    return (expr::Any) -> begin
+        # We need to first evaluate the expression in the function definition scope
+        # to get the expression by using the symbol and then evaluate it in the
+        # function call scope
+        arg = eval_expr(expr, params.def_fn_env)
+        return eval_expr(arg, params.call_fn_env)
+    end
 end
-set_value!(global_env, :eval, eval)
 
 
-function make_fexpr(args::Any, body::Union{Expr, Symbol}, scope::Env)
+function make_fexpr(args::Any, body::Union{Expr, Symbol}, env::Env)
+
+    # 1. Creates a new scope for the fexpr
+    scope = extend_env(env)
+
     # 1. Creates a new function
     func = (params...) -> begin
+        dyn_env = params[end - 1]  # Only needed for fexpr
+        def_env = params[end]
+        params = params[1:end-2]  # We ingore the last element, which is the environment
+
         # 1.1. Takes the arguments and binds them to the function parameters
         bindings = Dict{Symbol,Any}(zip(args, params))
 
         # 1.2. Before evaluating the body, we extend the function scope with the bindings
         for (var, value) in bindings
-            set_value!(scope, var, value)
+            set_value!(def_env, var, value)
         end
 
+        # 1.3. In fexpr, the eval function is evaluated in the call scope and so,
+        # we create a function that evaluates the body in the call scope
+        # and store it in the function scope
+        set_value!(def_env, :eval, CallScopedEval(def_env, dyn_env))
+
         # 1.3. Evaluates the body in the function scope
-        eval_expr(body, scope)
+        res = eval_expr(body, def_env)
+        return res
     end
+
+    func = Function(args, func, scope)
 
     # 2. Return the function
     return func
@@ -119,13 +179,19 @@ function handle_call(expr::Expr, env::Env)
     # 1. Extracts the function expression from the environment
     func = eval_expr(func_name, env)
 
-    # 2. If we have a primitive function, we need to evaluate the arguments
-    if is_primitive(func_name, env)
-        func_args = [eval_expr(arg, env) for arg in func_args]
+    # 2. If we are trying to evaluate an expression inside a fexpr, we need to evaluate it
+    if isa(func, CallScopedEval)
+        return call_scoped_eval(func)(func_args[1])
     end
 
-    # 3. Calls the function with the evaluated arguments and returns the result
-    func(func_args...)
+    # 3. If we have a primitive function, we need to evaluate the arguments and call it
+    if is_primitive(func_name, env)
+        func_args = [eval_expr(arg, env) for arg in func_args]
+        return func(func_args...)
+    end
+
+    # 4. If we are in a global scope, calls the function with the evaluated arguments
+    func.body(func_args..., env, func.scope)
 end
 
 
@@ -205,6 +271,26 @@ function handle_assignment(expr::Expr, eval_env::Env, storing_env::Env)
 end
 
 
+function handle_fexpr(expr::Expr, eval_env::Env, storing_env::Env)
+    signature = expr.args[1]
+    body = expr.args[2]
+    fn_name = signature.args[1]
+    args = signature.args[2:end]
+
+    # 1. Makes sure the arguments are a vector of symbols
+    args = isa(args, Symbol) ? [args] : args
+
+    # 2. Creates a function 
+    func = make_fexpr(args, body, eval_env)
+
+    # 3. Stores the function in the environment
+    set_value!(storing_env, fn_name, func)
+
+    # 4. Returns the function
+    return func
+end
+
+
 function handle_let(expr::Expr, old_env::Env)
     assignments = expr.args[1]
     body = expr.args[2]
@@ -244,7 +330,7 @@ function handle_global(expr::Expr, env::Env)
         if arg.head === :(=)
             val = handle_assignment(arg, env, global_env)
         elseif arg.head === :(:=)
-            val = handle_fexpr(arg, env)
+            val = handle_fexpr(arg, env, global_env)
         else
             throw(ArgumentError("Invalid global statement"))
         end
@@ -253,23 +339,8 @@ function handle_global(expr::Expr, env::Env)
 end
 
 
-function handle_fexpr(expr::Expr, env::Env)
-    signature = expr.args[1]
-    body = expr.args[2]
-    fn_name = signature.args[1]
-    args = signature.args[2:end]
-
-    # 1. Makes sure the arguments are a vector of symbols
-    args = isa(args, Symbol) ? [args] : args
-
-    # 2. Creates a function 
-    func = make_fexpr(args, body, env)
-
-    # 3. Stores the function in the environment
-    set_value!(env, fn_name, func)
-
-    # 4. Returns the function
-    return func
+function handle_quote(expr::Expr, env::Env)
+    return expr.args[end]
 end
 
 
@@ -327,7 +398,7 @@ function eval_expr(expr::Expr, env::Env)
     elseif expr.head === :(=)
         handle_assignment(expr, env, env)
     elseif expr.head === :(:=)
-        handle_fexpr(expr, env)
+        handle_fexpr(expr, env, env)
     elseif expr.head === :function
         # TODO: Implement function declaration
         # 1. Create a closure with the current environment
@@ -342,10 +413,12 @@ function eval_expr(expr::Expr, env::Env)
         handle_or(expr, env)
     elseif expr.head === :->
         handle_anonymous_function(expr, env)
+    elseif expr.head === :quote
+        handle_quote(expr, env)
     else
         # All other expressions should be collections of sub-expressions in an environment
         # and so, we do a broadcast to apply the function element-wise over the collection of expressions.
-        eval_expr.(expr.args, Ref(env))  # TODO: Check if this is the correct way to pass the environment (LineNumberNode)
+        eval_expr.(expr.args, Ref(env))
     end
 end
 

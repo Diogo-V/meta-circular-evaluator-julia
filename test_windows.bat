@@ -2,6 +2,6 @@
 
 set TESTS_DIR=tests
 
-for %%f in (%TESTS_DIR%\*.jl) do (
-    julia %%f
-)
+set ARGUMENT=%1
+
+    julia %TESTS_DIR%\%ARGUMENT%.jl
