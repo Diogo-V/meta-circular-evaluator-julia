@@ -61,33 +61,33 @@ fn = metajulia_eval
         @test fn(:(
             when(condition, action) := eval(condition) ? eval(action) : false;
             show_sign(n) =
-                begin
-                    when(n > 0, println("Positive"))
-                    when(n < 0, println("Negative"))
-                    n
+                let a = []
+                    when(n > 0, push!(a, "Positive"))
+                    when(n < 0, push!(a, "Negative"))
+                    a
                 end;
             show_sign(3)
-        )) == "Positive"
+        )) == ["Positive"]
         @test fn(:(
             when(condition, action) := eval(condition) ? eval(action) : false;
             show_sign(n) =
-                begin
-                    when(n > 0, println("Positive"))
-                    when(n < 0, println("Negative"))
-                    n
+                let a = []
+                    when(n > 0, push!(a, "Positive"))
+                    when(n < 0, push!(a, "Negative"))
+                    a
                 end;
             show_sign(-3)
-        )) == "Negative"
+        )) == ["Negative"]
         @test fn(:(
             when(condition, action) := eval(condition) ? eval(action) : false;
             show_sign(n) =
-                begin
-                    when(n > 0, println("Positive"))
-                    when(n < 0, println("Negative"))
-                    n
+                let a = []
+                    when(n > 0, push!(a, "Positive"))
+                    when(n < 0, push!(a, "Negative"))
+                    a
                 end;
             show_sign(0)
-        )) == 0
+        )) == []
     end
 
     @testset verbose = true "Repeating actions" begin

@@ -465,13 +465,3 @@ end
 function metajulia_eval(expr::Expr)
     main(expr, global_env)
 end
-
-
-z = :(
-    mystery() := eval;
-    let a = 1, b = 2
-        mystery()(:(a + b))
-    end
-)
-
-metajulia_eval(z)
