@@ -6,5 +6,8 @@ p1:
 p2:
 	@julia $(TESTS_DIR)/p2.jl
 
-test: p1 p2
+p3:
+	@julia $(TESTS_DIR)/p3.jl
+
+test: p1 p2 p3
 	
