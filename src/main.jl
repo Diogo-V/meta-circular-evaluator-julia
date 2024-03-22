@@ -10,9 +10,9 @@ end
 
 
 struct Function
-    args::Any
-    body::Any
-    scope::Env
+    args::Any      # Contains the arguments of the function
+    body::Any      # Contains the body of the function
+    scope::Env     # Contains an environment which is an extension of the calling environment
 end
 
 
@@ -114,11 +114,15 @@ function make_function(args::Any, body::Expr, env::Env)
 end
 
 
-function eval(expr::Union{Symbol, Expr}, env::Env)
-    eval_expr(expr, env)
+function build_call_scoped_eval(def_fn_env::Env, call_fn_env::Env)
+    return (expr::Any) -> begin
+        # We need to first evaluate the expression in the function call scope
+        # to get the expression by using the symbol and then evaluate it in the
+        # function definition scope
+        arg = eval_expr(expr, def_fn_env)
+        return eval_expr(arg, call_fn_env)
+    end
 end
-
-set_value!(global_env, :eval, eval)
 
 
 function make_fexpr(args::Any, body::Union{Expr, Symbol}, env::Env)
@@ -128,16 +132,26 @@ function make_fexpr(args::Any, body::Union{Expr, Symbol}, env::Env)
 
     # 1. Creates a new function
     func = (params...) -> begin
+        dyn_env = params[end - 1]  # Only needed for fexpr
+        def_env = params[end]
+        params = params[1:end-2]  # We ingore the last element, which is the environment
+
         # 1.1. Takes the arguments and binds them to the function parameters
         bindings = Dict{Symbol,Any}(zip(args, params))
 
         # 1.2. Before evaluating the body, we extend the function scope with the bindings
         for (var, value) in bindings
-            set_value!(scope, var, value)
+            set_value!(def_env, var, value)
         end
 
+        # 1.3. In fexpr, the eval function is evaluated in the call scope and so,
+        # we create a function that evaluates the body in the call scope
+        # and store it in the function scope
+        set_value!(def_env, :eval, build_call_scoped_eval(def_env, dyn_env))
+
         # 1.3. Evaluates the body in the function scope
-        eval_expr(body, scope)
+        res = eval_expr(body, def_env)
+        return res
     end
 
     func = Function(args, func, scope)
@@ -159,25 +173,23 @@ function handle_call(expr::Expr, env::Env)
     # 1. Extracts the function expression from the environment
     func = eval_expr(func_name, env)
 
-    # 2.5 EVAL HANDLING
-    # IDK WHY THIS WORKS BUT LOOKS LIKE THIS WORKS (NOT FOR P2 ONLY FOR P1)
+    # 2. If we are trying to evaluate an expression inside a fexpr, we need to evaluate it
     if func_name === :eval
-        evaled = eval_expr(eval_expr(func_args[1], env), env)
-        return evaled
+        return func(func_args[1])
     end
 
-    # 2. If we have a primitive function, we need to evaluate the arguments and call it
+    # 3. If we have a primitive function, we need to evaluate the arguments and call it
     if is_primitive(func_name, env)
         func_args = [eval_expr(arg, env) for arg in func_args]
         return func(func_args...)
     end
 
-    # check if we are inside a let
+    # 4. If we are inside a Let statement, instead we should use the let environment
     if env.parent !== nothing
         return func.body(func_args..., env, env)
     end     
 
-    # 3. Calls the function with the evaluated arguments and returns the result
+    # 5. If we are in a global scope, calls the function with the evaluated arguments
     func.body(func_args..., env, func.scope)
 end
 
@@ -447,24 +459,14 @@ function metajulia_eval(expr::Expr)
 end
 
 
-# s = :(
-#     debug(expr) := 
-#         let r = eval(expr);
-#             s = "" + expr + " => " + r
-#             return s
-#         end ;
-#     let x = 1
-#         1 + debug(x + 1)
-#     end
-# )
-# # 
-
-x = :(
-    pr(x):=eval(x);
-    let a = 1
-        pr(a)
-    end;
+z = :(
+    debug(expr) := 
+        let r = eval(expr)
+            r
+        end ;
+    let x = 1
+        1 + debug(x + 1)
+    end
 )
 
-metajulia_eval(x)
-
+metajulia_eval(z)

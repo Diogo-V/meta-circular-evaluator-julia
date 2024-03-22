@@ -198,5 +198,13 @@ fn = metajulia_eval
                 fn(x)
             end
         )) == 2
+
+        @test fn(:(
+            x = 2;
+            fn(x) = 5 + x;
+            let x = 1
+                fn(x)
+            end
+        )) == 6
     end
 end

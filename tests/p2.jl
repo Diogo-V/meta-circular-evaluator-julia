@@ -18,15 +18,21 @@ fn = metajulia_eval
 
     @testset verbose = true "Eval is evaluated in the call scope" begin
         @test fn(:(
+            f(x) := 
+                let y = 1
+                    eval(x) + y
+                end;
+            f(1 + 1)
+        )) == 3
+        @test fn(:(
             debug(expr) := 
-                let r = eval(expr);
-                    s = "" + expr + " => " + r
-                    return s
+                let r = eval(expr)
+                    r
                 end ;
             let x = 1
                 1 + debug(x + 1)
             end
-        )) == "x + 1 => 2"
+        )) == 3
         @test fn(:(
             let a = 1
                 global puzzle(x) :=
