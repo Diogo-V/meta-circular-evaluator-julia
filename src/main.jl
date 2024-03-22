@@ -16,6 +16,12 @@ struct Function
 end
 
 
+struct CallScopedEval
+    def_fn_env::Env
+    call_fn_env::Env
+end
+
+
 function extend_env(parent_env::Env)
     return Env(Dict{Symbol,Any}(), parent_env)
 end
@@ -114,13 +120,13 @@ function make_function(args::Any, body::Expr, env::Env)
 end
 
 
-function build_call_scoped_eval(def_fn_env::Env, call_fn_env::Env)
+function call_scoped_eval(params::CallScopedEval)
     return (expr::Any) -> begin
-        # We need to first evaluate the expression in the function call scope
+        # We need to first evaluate the expression in the function definition scope
         # to get the expression by using the symbol and then evaluate it in the
-        # function definition scope
-        arg = eval_expr(expr, def_fn_env)
-        return eval_expr(arg, call_fn_env)
+        # function call scope
+        arg = eval_expr(expr, params.def_fn_env)
+        return eval_expr(arg, params.call_fn_env)
     end
 end
 
@@ -147,7 +153,7 @@ function make_fexpr(args::Any, body::Union{Expr, Symbol}, env::Env)
         # 1.3. In fexpr, the eval function is evaluated in the call scope and so,
         # we create a function that evaluates the body in the call scope
         # and store it in the function scope
-        set_value!(def_env, :eval, build_call_scoped_eval(def_env, dyn_env))
+        set_value!(def_env, :eval, CallScopedEval(def_env, dyn_env))
 
         # 1.3. Evaluates the body in the function scope
         res = eval_expr(body, def_env)
@@ -174,8 +180,8 @@ function handle_call(expr::Expr, env::Env)
     func = eval_expr(func_name, env)
 
     # 2. If we are trying to evaluate an expression inside a fexpr, we need to evaluate it
-    if func_name === :eval
-        return func(func_args[1])
+    if isa(func, CallScopedEval)
+        return call_scoped_eval(func)(func_args[1])
     end
 
     # 3. If we have a primitive function, we need to evaluate the arguments and call it
@@ -333,6 +339,11 @@ function handle_global(expr::Expr, env::Env)
 end
 
 
+function handle_quote(expr::Expr, env::Env)
+    return expr.args[end]
+end
+
+
 # --------------------------------------------------------------------------- #
 # -------------------------- Evaluate Expressions --------------------------- #
 # --------------------------------------------------------------------------- #
@@ -402,10 +413,12 @@ function eval_expr(expr::Expr, env::Env)
         handle_or(expr, env)
     elseif expr.head === :->
         handle_anonymous_function(expr, env)
+    elseif expr.head === :quote
+        handle_quote(expr, env)
     else
         # All other expressions should be collections of sub-expressions in an environment
         # and so, we do a broadcast to apply the function element-wise over the collection of expressions.
-        eval_expr.(expr.args, Ref(env))  # TODO: Check if this is the correct way to pass the environment (LineNumberNode)
+        eval_expr.(expr.args, Ref(env))
     end
 end
 
@@ -455,9 +468,9 @@ end
 
 
 z = :(
-    fn(x) = x + 1;
-    let x = 1
-        fn(x)
+    mystery() := eval;
+    let a = 1, b = 2
+        mystery()(:(a + b))
     end
 )
 
