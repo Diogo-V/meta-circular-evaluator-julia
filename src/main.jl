@@ -88,12 +88,12 @@ function make_function(args::Any, body::Expr, env::Env)
 
     # 1. Creates a new function
     func = (params...) -> begin
-        dyn_env = params[end - 1]  # Only needed for fexpr
+        dyn_env = params[end - 1]
         def_env = params[end]
         params = params[1:end-2]  # We ingore the last element, which is the environment
 
         # 1.1. Contrary to the make_fexpr, we need to evaluate the arguments
-        evaled_params = [eval_expr(param, def_env) for param in params]
+        evaled_params = [eval_expr(param, dyn_env) for param in params]
 
         # 1.2. Takes the arguments and binds them to the function parameters
         bindings = Dict{Symbol,Any}(zip(args, evaled_params))
@@ -184,12 +184,7 @@ function handle_call(expr::Expr, env::Env)
         return func(func_args...)
     end
 
-    # 4. If we are inside a Let statement, instead we should use the let environment
-    if env.parent !== nothing
-        return func.body(func_args..., env, env)
-    end     
-
-    # 5. If we are in a global scope, calls the function with the evaluated arguments
+    # 4. If we are in a global scope, calls the function with the evaluated arguments
     func.body(func_args..., env, func.scope)
 end
 
@@ -460,14 +455,9 @@ end
 
 
 z = :(
-    let a = 1
-        global puzzle(x) :=
-            let b = 2
-                eval(x) + a + b
-            end 
-    end;
-    let a = 3, b = 4
-        puzzle(a + b)
+    fn(x) = x + 1;
+    let x = 1
+        fn(x)
     end
 )
 
