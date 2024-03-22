@@ -270,6 +270,26 @@ function handle_assignment(expr::Expr, eval_env::Env, storing_env::Env)
 end
 
 
+function handle_fexpr(expr::Expr, eval_env::Env, storing_env::Env)
+    signature = expr.args[1]
+    body = expr.args[2]
+    fn_name = signature.args[1]
+    args = signature.args[2:end]
+
+    # 1. Makes sure the arguments are a vector of symbols
+    args = isa(args, Symbol) ? [args] : args
+
+    # 2. Creates a function 
+    func = make_fexpr(args, body, eval_env)
+
+    # 3. Stores the function in the environment
+    set_value!(storing_env, fn_name, func)
+
+    # 4. Returns the function
+    return func
+end
+
+
 function handle_let(expr::Expr, old_env::Env)
     assignments = expr.args[1]
     body = expr.args[2]
@@ -309,32 +329,12 @@ function handle_global(expr::Expr, env::Env)
         if arg.head === :(=)
             val = handle_assignment(arg, env, global_env)
         elseif arg.head === :(:=)
-            val = handle_fexpr(arg, env)
+            val = handle_fexpr(arg, env, global_env)
         else
             throw(ArgumentError("Invalid global statement"))
         end
     end
     return val
-end
-
-
-function handle_fexpr(expr::Expr, env::Env)
-    signature = expr.args[1]
-    body = expr.args[2]
-    fn_name = signature.args[1]
-    args = signature.args[2:end]
-
-    # 1. Makes sure the arguments are a vector of symbols
-    args = isa(args, Symbol) ? [args] : args
-
-    # 2. Creates a function 
-    func = make_fexpr(args, body, env)
-
-    # 3. Stores the function in the environment
-    set_value!(env, fn_name, func)
-
-    # 4. Returns the function
-    return func
 end
 
 
@@ -392,7 +392,7 @@ function eval_expr(expr::Expr, env::Env)
     elseif expr.head === :(=)
         handle_assignment(expr, env, env)
     elseif expr.head === :(:=)
-        handle_fexpr(expr, env)
+        handle_fexpr(expr, env, env)
     elseif expr.head === :function
         # TODO: Implement function declaration
         # 1. Create a closure with the current environment
@@ -460,12 +460,14 @@ end
 
 
 z = :(
-    debug(expr) := 
-        let r = eval(expr)
-            r
-        end ;
-    let x = 1
-        1 + debug(x + 1)
+    let a = 1
+        global puzzle(x) :=
+            let b = 2
+                eval(x) + a + b
+            end 
+    end;
+    let a = 3, b = 4
+        puzzle(a + b)
     end
 )
 
