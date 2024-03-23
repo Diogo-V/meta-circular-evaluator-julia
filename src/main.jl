@@ -129,6 +129,13 @@ end
 
 function call_scoped_eval(params::CallScopedEval)
     return (expr::Any) -> begin
+        # If we call the eval function without binding any variable, during the
+        # build of the fexpr, we don't need to retrieve the expression from the
+        # function definition scope and instead, we can evaluate it directly
+        if length(params.def_fn_env.vars) == 1
+            return eval_expr(expr, params.call_fn_env)
+        end
+
         # We need to first evaluate the expression in the function definition scope
         # to get the expression by using the symbol and then evaluate it in the
         # function call scope
