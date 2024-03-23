@@ -577,9 +577,16 @@ end
 
 
 s = :(
-    when(condition, action) $= :($condition ? $action : false);
-    abs(x) = (when(x < 0, (x = -x;)); x);
-    abs(-5)
+    repeat_until(condition, action) $=
+        let loop = gensym()
+            :(let ;
+                $loop() = ($action; $condition ? false : $loop())
+                $loop()
+            end) 
+        end;
+    let loop = "I'm looping!", i = 3, vals = []
+        repeat_until(i == 0, (push!(vals, loop); i = i - 1))
+    end
 )
 
 x = :(
@@ -589,6 +596,6 @@ x = :(
     end
 )
 
-# dump(s)
+dump(s)
 
-metajulia_eval(x)
+metajulia_eval(s)

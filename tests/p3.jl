@@ -27,8 +27,9 @@ fn = metajulia_eval
                 end) ;
             let n = 4, vals = []
                 repeat_until(n == 0, (push!(vals, n); n = n - 1))
+                vals
             end
-        )) == [4, 3, 2, 1, false]
+        )) == [4, 3, 2, 1]
     end
 
     @testset verbose = true "Gensym blocks variable shadowing" begin
