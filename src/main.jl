@@ -176,8 +176,7 @@ end
 
 function macro_expansion(expr::Any, env::Env)
 
-    # 1. Iterates over all arguments of the expression and replaces the 
-    # interpolable expressions with their values
+    # 1. Iterates over all arguments of the expression
     if isa(expr, Expr) && expr.head !== :$
         expr = Expr(expr.head, [
             macro_expansion(arg, env) for arg in expr.args
@@ -185,13 +184,51 @@ function macro_expansion(expr::Any, env::Env)
         return expr
     end
 
-    # 2. If we found an interpolation, we need to evaluate it by fetching the expression
+    # 2. If we found an interpolation, we need to replace it by fetching the expression
     if isa(expr, Expr) && expr.head === :$
         val = handle_interpolation(expr, env)
         return val
     end
 
     # 3. If we don't have an expression, we return it as is
+    return expr
+end
+
+
+function find_lhs_assignments(expr::Any, symbols::Vector{Any})
+    # 1. Iterates over all arguments of the expression
+    if isa(expr, Expr)
+        find_lhs_assignments.(expr.args, Ref(symbols))
+    end
+
+    # 2. If we found an assignment, we store the left hand side symbol
+    # in the symbols vector
+    if isa(expr, Symbol)
+        push!(symbols, expr)
+    end
+end
+
+
+function macro_gensym(expr::Any, env::Env)
+
+    # 1. Finds all the symbols in the expression that are left hand
+    # sides of assignments
+    symbols = []
+    find_lhs_assignments(expr, symbols)
+
+    # 2. Dedupes the symbols
+    symbols = unique(symbols)
+
+    # 3. Removes the symbols that are already defined in the environment
+    symbols = filter(sym -> get_value(env, sym) === nothing, symbols)
+
+    # 3. Sets the value of the symbols to a gensym to avoid shadowing
+    # variables in the environment
+    for sym in symbols
+        set_value!(env, sym, gensym())
+    end
+
+    # 5. Returns the new macro wrapped in a let statement
     return expr
 end
 
@@ -215,11 +252,16 @@ function make_macro(args::Any, body::Union{Expr, Symbol}, env::Env)
             set_value!(def_env, var, value)
         end
 
-        # 1.3. Expands the macro into the expression to be evaluated
+        # 1.3. Since when we expand the macro, we might create name collisions,
+        # we need to resolve the conflicts by generating unique names to 
+        # the assigned varibales
+        expr = macro_gensym(body, def_env)
+        
+        # 1.4. Expands the macro into the expression to be evaluated
         # given the scope
-        expr = macro_expansion(body, def_env)
+        expr = macro_expansion(expr, def_env)
 
-        # 1.4. Evaluates the macro in the call scope
+        # 1.5. Evaluates the macro in the call scope
         res = eval_expr(expr, call_env)
         return res
     end
@@ -574,28 +616,3 @@ end
 function metajulia_eval(expr::Expr)
     main(expr, global_env)
 end
-
-
-s = :(
-    repeat_until(condition, action) $=
-        let loop = gensym()
-            :(let ;
-                $loop() = ($action; $condition ? false : $loop())
-                $loop()
-            end) 
-        end;
-    let loop = "I'm looping!", i = 3, vals = []
-        repeat_until(i == 0, (push!(vals, loop); i = i - 1))
-    end
-)
-
-x = :(
-    mystery() := eval;
-    let a = 1, b = 2
-        mystery()(:(a + b))
-    end
-)
-
-dump(s)
-
-metajulia_eval(s)

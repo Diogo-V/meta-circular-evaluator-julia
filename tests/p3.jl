@@ -35,15 +35,14 @@ fn = metajulia_eval
     @testset verbose = true "Gensym blocks variable shadowing" begin
         @test fn(:(
             repeat_until(condition, action) $=
-                let loop = gensym()
-                    :(let ;
-                        $loop() = ($action; $condition ? false : $loop())
-                        $loop()
-                    end) 
-                end;
+                :(let ;
+                    $loop() = ($action; $condition ? false : $loop())
+                    $loop()
+                end) ;
             let loop = "I'm looping!", i = 3, vals = []
                 repeat_until(i == 0, (push!(vals, loop); i = i - 1))
+                vals
             end
-        )) == ["I'm looping!", "I'm looping!", "I'm looping!", false]
+        )) == ["I'm looping!", "I'm looping!", "I'm looping!"]
     end
 end
