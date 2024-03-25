@@ -17,11 +17,18 @@ end
 show(io::IO, p::Function) = print(io, "<function>")
 
 
+struct FExpr
+    args::Any      # Contains the arguments of the fexpr
+    body::Any      # Contains the body of the fexpr
+    scope::Env     # Contains an environment which is an extension of the calling environment
+end
+show(io::IO, p::FExpr) = print(io, "<fexpr>")
+
+
 struct CallScopedEval
     def_fn_env::Env
     call_fn_env::Env
 end
-show(io::IO, p::CallScopedEval) = print(io, "<fexpr>")
 
 
 struct MetaMacro
@@ -177,7 +184,7 @@ function make_fexpr(args::Any, body::Union{Expr, Symbol}, env::Env)
         return res
     end
 
-    func = Function(args, func, scope)
+    func = FExpr(args, func, scope)
 
     # 2. Return the function
     return func
