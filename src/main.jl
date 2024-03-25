@@ -614,7 +614,7 @@ function main(text::String, env::Env)
 end
 
 
-function main(expr::Expr, env::Env)
+function main(expr::Any, env::Env)
     eval_expr(expr, env)
 end
 
@@ -630,6 +630,10 @@ function metajulia_repl()
 end
 
 
-function metajulia_eval(expr::Expr)
-    main(expr, global_env)
+function metajulia_eval(expr::Any)
+    if isa(expr, Expr)
+        return main(expr, global_env)
+    else
+        return eval_expr(expr, global_env)
+    end
 end
