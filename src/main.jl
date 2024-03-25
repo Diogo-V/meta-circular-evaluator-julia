@@ -14,12 +14,14 @@ struct Function
     body::Any      # Contains the body of the function
     scope::Env     # Contains an environment which is an extension of the calling environment
 end
+show(io::IO, p::Function) = print(io, "<function>")
 
 
 struct CallScopedEval
     def_fn_env::Env
     call_fn_env::Env
 end
+show(io::IO, p::CallScopedEval) = print(io, "<fexpr>")
 
 
 struct MetaMacro
@@ -27,6 +29,7 @@ struct MetaMacro
     body::Any
     scope::Env
 end
+show(io::IO, p::MetaMacro) = print(io, "<macro>")
 
 
 function extend_env(parent_env::Env)
