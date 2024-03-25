@@ -29,6 +29,7 @@ struct CallScopedEval
     def_fn_env::Env
     call_fn_env::Env
 end
+show(io::IO, p::CallScopedEval) = print(io, "<function>")
 
 
 struct MetaMacro
