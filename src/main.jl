@@ -10,6 +10,7 @@ end
 
 
 struct Func
+    name::Symbol   # Contains the name of the function
     args::Any      # Contains the arguments of the function
     body::Any      # Contains the body of the function
     scope::Env     # Contains an environment which is an extension of the calling environment
@@ -18,6 +19,7 @@ show(io::IO, p::Func) = print(io, "<function>")
 
 
 struct FExpr
+    name::Symbol   # Contains the name of the fexpr
     args::Any      # Contains the arguments of the fexpr
     body::Any      # Contains the body of the fexpr
     scope::Env     # Contains an environment which is an extension of the calling environment
@@ -33,6 +35,7 @@ show(io::IO, p::CallScopedEval) = print(io, "<function>")
 
 
 struct MetaMacro
+    name::Symbol
     args::Any
     body::Any
     scope::Env
@@ -84,6 +87,33 @@ global_env = Env(Dict{Symbol,Any}(), nothing)
 
 
 # --------------------------------------------------------------------------- #
+# --------------------------------- Tracing --------------------------------- #
+# --------------------------------------------------------------------------- #
+
+
+traceable_functions = Dict{Symbol,Any}()
+
+
+function register_traceable(func::Any, call_env::Env, def_env::Env)
+    traceable_functions[func] = func
+end
+set_value!(global_env, :register_traceable, Func(:register_traceable, [], register_traceable, global_env))
+
+
+function is_traceable(name::Any)
+    return haskey(traceable_functions, name)
+end
+
+
+function traceable_call(func::Union{Func, FExpr, MetaMacro}, args::Any...)
+    println("Calling function: ", func.name, " with arguments: ", args[1:end-2])
+    res = func.body(args...)
+    println("Function ", func.name, " returned: ", res)
+    return res
+end
+
+
+# --------------------------------------------------------------------------- #
 # ------------------------------- Auxiliaries ------------------------------- #
 # --------------------------------------------------------------------------- #
 
@@ -105,7 +135,7 @@ function is_primitive(expr::Symbol, env::Env)
 end
 
 
-function make_function(args::Any, body::Expr, env::Env)
+function make_function(args::Any, body::Expr, env::Env, name::Symbol=:())
 
     # 1. Creates a new scope for the function
     scope = extend_env(env)
@@ -131,7 +161,7 @@ function make_function(args::Any, body::Expr, env::Env)
         eval_expr(body, def_env)
     end
 
-    f = Func(args, func, scope)
+    f = Func(name, args, func, scope)
 
     # 2. Return the function
     return f
@@ -156,7 +186,7 @@ function call_scoped_eval(params::CallScopedEval)
 end
 
 
-function make_fexpr(args::Any, body::Union{Expr, Symbol}, env::Env)
+function make_fexpr(args::Any, body::Union{Expr, Symbol}, env::Env, name::Symbol=:())
 
     # 1. Creates a new scope for the fexpr
     scope = extend_env(env)
@@ -185,7 +215,7 @@ function make_fexpr(args::Any, body::Union{Expr, Symbol}, env::Env)
         return res
     end
 
-    func = FExpr(args, func, scope)
+    func = FExpr(name, args, func, scope)
 
     # 2. Return the function
     return func
@@ -251,7 +281,7 @@ function macro_gensym(expr::Any, env::Env)
 end
 
 
-function make_macro(args::Any, body::Union{Expr, Symbol}, env::Env)
+function make_macro(args::Any, body::Union{Expr, Symbol}, env::Env, name::Symbol=:())
 
     # 1. Creates a new scope for the macro
     scope = extend_env(env)
@@ -284,7 +314,7 @@ function make_macro(args::Any, body::Union{Expr, Symbol}, env::Env)
         return res
     end
 
-    func = MetaMacro(args, func, scope)
+    func = MetaMacro(name, args, func, scope)
 
     # 2. Return the function
     return func
@@ -316,6 +346,9 @@ function handle_call(expr::Expr, env::Env)
     end
 
     # 4. If we are in a global scope, calls the function/fexpr with the evaluated arguments
+    if is_traceable(func_name)
+        return traceable_call(func, func_args..., env, func.scope)
+    end
     res = func.body(func_args..., env, func.scope)
     return res
 end
@@ -380,7 +413,7 @@ function handle_assignment(expr::Expr, eval_env::Env, storing_env::Env)
         fn_name = lhs.args[1]
         args = lhs.args[2:end]
         body = rhs
-        func = make_function(args, body, eval_env)
+        func = make_function(args, body, eval_env, fn_name)
 
         var = fn_name
         value = func
@@ -407,7 +440,7 @@ function handle_fexpr(expr::Expr, eval_env::Env, storing_env::Env)
     args = isa(args, Symbol) ? [args] : args
 
     # 2. Creates a function 
-    func = make_fexpr(args, body, eval_env)
+    func = make_fexpr(args, body, eval_env, fn_name)
 
     # 3. Stores the function in the environment
     set_value!(storing_env, fn_name, func)
@@ -427,7 +460,7 @@ function handle_macro(expr::Expr, eval_env::Env, storing_env::Env)
     args = isa(args, Symbol) ? [args] : args
 
     # 2. Creates a macro
-    mac = make_macro(args, body, eval_env)
+    mac = make_macro(args, body, eval_env, macro_name)
 
     # 3. Stores the macro in the environment
     set_value!(storing_env, macro_name, mac)
@@ -463,7 +496,7 @@ function handle_anonymous_function(expr::Expr, env::Env)
     args = isa(args, Symbol) ? [args] : args.args
 
     # 2. Creates a function 
-    func = make_function(args, body, env)
+    func = make_function(args, body, env, :anonymous)
 
     # 3. Returns the function
     return func
