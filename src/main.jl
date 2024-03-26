@@ -9,12 +9,12 @@ struct Env
 end
 
 
-struct Function
+struct Func
     args::Any      # Contains the arguments of the function
     body::Any      # Contains the body of the function
     scope::Env     # Contains an environment which is an extension of the calling environment
 end
-show(io::IO, p::Function) = print(io, "<function>")
+show(io::IO, p::Func) = print(io, "<function>")
 
 
 struct FExpr
@@ -131,7 +131,7 @@ function make_function(args::Any, body::Expr, env::Env)
         eval_expr(body, def_env)
     end
 
-    f = Function(args, func, scope)
+    f = Func(args, func, scope)
 
     # 2. Return the function
     return f
