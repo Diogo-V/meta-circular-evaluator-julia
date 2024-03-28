@@ -1,6 +1,6 @@
 # ------------------------------------------------------------------------------
 # macro.jl
-# This file contains the implementation of the environment and macro handling.
+# This file contains the implementation of macro handling.
 # ------------------------------------------------------------------------------
 include("./env.jl")
 
