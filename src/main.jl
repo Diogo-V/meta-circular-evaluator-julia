@@ -2,7 +2,7 @@
 # main.jl
 # This file contains the implementation of the MetaJulia REPL.
 # ------------------------------------------------------------------------------
-include("./lang_def.jl") # Include the language definition
+include("./lang_def.jl")
 
 
 # ------------------------------------------------------------------------------
